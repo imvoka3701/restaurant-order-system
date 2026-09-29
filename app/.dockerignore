@@ -1,0 +1,10 @@
+# Không đưa vào Docker image
+node_modules
+.env
+.env.*
+.git
+.gitignore
+*.md
+npm-debug.log*
+Dockerfile
+.dockerignore

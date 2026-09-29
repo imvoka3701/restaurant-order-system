@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Đặt món - Hệ thống Quản lý Nhà hàng</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <!-- Thanh điều hướng chung -->
+  <nav>
+    <span class="brand">🍜 Nhà hàng</span>
+    <a href="/" class="active">Đặt món</a>
+    <a href="/kitchen.html">Bếp</a>
+    <a href="/cashier.html">Thu ngân</a>
+    <a href="/revenue.html">Doanh thu</a>
+  </nav>
+
+  <div class="container">
+    <h1>📋 Đặt món</h1>
+    <div id="alert-box"></div>
+
+    <div class="grid-2">
+      <!-- Cột trái: Chọn bàn & Thực đơn -->
+      <div>
+        <!-- Chọn bàn -->
+        <div class="card mb-2">
+          <h2>🪑 Chọn bàn</h2>
+          <select id="table-select" style="width:100%">
+            <option value="">-- Chọn bàn --</option>
+          </select>
+        </div>
+
+        <!-- Lọc danh mục -->
+        <div class="card mb-2">
+          <h2>🍽️ Thực đơn</h2>
+          <div class="mb-1">
+            <button class="btn btn-sm btn-primary" onclick="loadMenu('')">Tất cả</button>
+            <button class="btn btn-sm btn-secondary" onclick="loadMenu('APPETIZER')">Khai vị</button>
+            <button class="btn btn-sm btn-secondary" onclick="loadMenu('MAIN')">Món chính</button>
+            <button class="btn btn-sm btn-secondary" onclick="loadMenu('DESSERT')">Tráng miệng</button>
+            <button class="btn btn-sm btn-secondary" onclick="loadMenu('BEVERAGE')">Đồ uống</button>
+          </div>
+          <div id="menu-list" class="grid"></div>
+        </div>
+      </div>
+
+      <!-- Cột phải: Giỏ hàng -->
+      <div>
+        <div class="card" style="position:sticky;top:70px;">
+          <h2>🛒 Giỏ hàng</h2>
+          <div id="cart-items"></div>
+          <div class="cart-total" id="cart-total">Tổng: 0 ₫</div>
+          <button class="btn btn-primary" style="width:100%" onclick="submitOrder()" id="btn-submit">
+            Gửi đơn hàng
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

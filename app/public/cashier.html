@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Thu ngân - Hệ thống Quản lý Nhà hàng</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <nav>
+    <span class="brand">🍜 Nhà hàng</span>
+    <a href="/">Đặt món</a>
+    <a href="/kitchen.html">Bếp</a>
+    <a href="/cashier.html" class="active">Thu ngân</a>
+    <a href="/revenue.html">Doanh thu</a>
+  </nav>
+
+  <div class="container">
+    <h1>💰 Thu ngân</h1>
+    <p style="color:#757575;margin-bottom:1rem">Đơn hàng đã phục vụ, chờ thanh toán. Tự cập nhật mỗi 5 giây.</p>
+    <div id="alert-box"></div>
+    <div id="served-orders"></div>
+  </div>
+
+  <script>
+    'use strict';
+
+    function formatVND(amount) {
+      return new Intl.NumberFormat('vi-VN').format(amount) + ' ₫';
+    }
+
+    function showAlert(msg, type) {
+      var box = document.getElementById('alert-box');
+      var div = document.createElement('div');
+      div.className = 'alert alert-' + type;
+      div.textContent = msg;
+      box.innerHTML = '';
+      box.appendChild(div);
+      setTimeout(function() { if (box.contains(div)) box.removeChild(div); }, 3000);
+    }
+
+    async function payOrder(orderId) {
+      try {
+        var res = await fetch('/api/orders/' + orderId + '/status', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'PAID' }),
+        });
+        var data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        showAlert('Đơn #' + orderId + ' đã thanh toán thành công!', 'success');
+        loadServedOrders();
+      } catch (err) {
+        showAlert(err.message, 'error');
+      }
+    }
+
+    async function loadServedOrders() {
+      try {
+        var res = await fetch('/api/orders?status=SERVED');
+        var orders = await res.json();
+        var container = document.getElementById('served-orders');
+        container.innerHTML = '';
+
+        if (orders.length === 0) {
+          var p = document.createElement('p');
+          p.style.color = '#757575';
+          p.textContent = 'Không có đơn chờ thanh toán';
+          container.appendChild(p);
+          return;
+        }
+
+        orders.forEach(function(order) {
+          var card = document.createElement('div');
+          card.className = 'card';
+
+          var header = document.createElement('div');
+          header.className = 'flex-between mb-1';
+          var title = document.createElement('strong');
+          title.textContent = 'Đơn #' + order.id + ' - Bàn ' + order.table_number;
+          var badge = document.createElement('span');
+          badge.className = 'badge badge-served';
+          badge.textContent = 'SERVED';
+          header.appendChild(title);
+          header.appendChild(badge);
+          card.appendChild(header);
+
+          var time = document.createElement('div');
+          time.style.fontSize = '0.8rem';
+          time.style.color = '#757575';
+          time.textContent = new Date(order.created_at).toLocaleString('vi-VN');
+          card.appendChild(time);
+
+          var total = document.createElement('div');
+          total.style.fontSize = '1.1rem';
+          total.style.fontWeight = 'bold';
+          total.style.color = '#e65100';
+          total.style.margin = '0.5rem 0';
+          total.textContent = 'Tổng tiền: ' + formatVND(order.total_amount);
+          card.appendChild(total);
+
+          var btn = document.createElement('button');
+          btn.className = 'btn btn-success';
+          btn.textContent = '💳 Thanh toán';
+          btn.onclick = function() { payOrder(order.id); };
+          card.appendChild(btn);
+
+          container.appendChild(card);
+        });
+      } catch (err) {
+        showAlert('Lỗi: ' + err.message, 'error');
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      loadServedOrders();
+      setInterval(loadServedOrders, 5000);
+    });
+  </script>
+</body>
+</html>
