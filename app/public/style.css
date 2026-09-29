@@ -496,6 +496,7 @@ select {
   font-size: 1.35rem;
   font-weight: 800;
   background: var(--primary-gradient);
+  background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   padding: 1.1rem 0;
@@ -617,6 +618,7 @@ tr:hover td {
 
 .kpi-value.gradient {
   background: var(--primary-gradient);
+  background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
