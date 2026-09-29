@@ -19,7 +19,7 @@
     <h1>💰 Thu ngân</h1>
     <p style="color:#757575;margin-bottom:1rem">Đơn hàng đã phục vụ, chờ thanh toán. Tự cập nhật mỗi 5 giây.</p>
     <div id="alert-box"></div>
-    <div id="served-orders"></div>
+    <div id="served-orders" class="grid"></div>
   </div>
 
   <script>
@@ -63,9 +63,15 @@
         container.innerHTML = '';
 
         if (orders.length === 0) {
-          var p = document.createElement('p');
-          p.style.color = '#757575';
-          p.textContent = 'Không có đơn chờ thanh toán';
+          var p = document.createElement('div');
+          p.style.color = '#94a3b8';
+          p.style.gridColumn = '1 / -1';
+          p.style.textAlign = 'center';
+          p.style.padding = '3rem 1rem';
+          p.style.background = '#ffffff';
+          p.style.borderRadius = '16px';
+          p.style.border = '1px dashed #cbd5e1';
+          p.innerHTML = '<div style="font-size:2.5rem;margin-bottom:0.5rem">✨</div><div style="font-weight:600;color:#64748b">Không có đơn chờ thanh toán</div><div style="font-size:0.85rem;margin-top:0.25rem">Tất cả bàn đã hoàn tất thanh toán hoặc đang dùng món</div>';
           container.appendChild(p);
           return;
         }
@@ -73,38 +79,49 @@
         orders.forEach(function(order) {
           var card = document.createElement('div');
           card.className = 'card';
+          card.style.display = 'flex';
+          card.style.flexDirection = 'column';
+          card.style.justifyContent = 'space-between';
 
+          var top = document.createElement('div');
           var header = document.createElement('div');
           header.className = 'flex-between mb-1';
           var title = document.createElement('strong');
-          title.textContent = 'Đơn #' + order.id + ' - Bàn ' + order.table_number;
+          title.style.fontSize = '1.05rem';
+          title.textContent = 'Đơn #' + order.id + ' • Bàn ' + order.table_number;
           var badge = document.createElement('span');
           badge.className = 'badge badge-served';
           badge.textContent = 'SERVED';
           header.appendChild(title);
           header.appendChild(badge);
-          card.appendChild(header);
+          top.appendChild(header);
 
           var time = document.createElement('div');
           time.style.fontSize = '0.8rem';
-          time.style.color = '#757575';
-          time.textContent = new Date(order.created_at).toLocaleString('vi-VN');
-          card.appendChild(time);
+          time.style.color = '#94a3b8';
+          time.textContent = '⏱️ ' + new Date(order.created_at).toLocaleTimeString('vi-VN') + ' - ' + new Date(order.created_at).toLocaleDateString('vi-VN');
+          top.appendChild(time);
+          card.appendChild(top);
+
+          var bottom = document.createElement('div');
+          bottom.style.marginTop = '1.5rem';
 
           var total = document.createElement('div');
-          total.style.fontSize = '1.1rem';
-          total.style.fontWeight = 'bold';
-          total.style.color = '#e65100';
-          total.style.margin = '0.5rem 0';
-          total.textContent = 'Tổng tiền: ' + formatVND(order.total_amount);
-          card.appendChild(total);
+          total.style.fontSize = '1.25rem';
+          total.style.fontWeight = '800';
+          total.style.color = '#ea580c';
+          total.style.marginBottom = '0.75rem';
+          total.textContent = formatVND(order.total_amount);
+          bottom.appendChild(total);
 
           var btn = document.createElement('button');
           btn.className = 'btn btn-success';
-          btn.textContent = '💳 Thanh toán';
+          btn.style.width = '100%';
+          btn.textContent = '💳 Thu tiền & Hoàn tất';
           btn.onclick = function() { payOrder(order.id); };
-          card.appendChild(btn);
+          bottom.appendChild(btn);
 
+          card.appendChild(bottom);
           container.appendChild(card);
         });
       } catch (err) {

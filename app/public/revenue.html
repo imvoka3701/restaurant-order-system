@@ -22,17 +22,22 @@
     <!-- Bộ lọc ngày -->
     <div class="card mb-2">
       <h2>📅 Lọc theo ngày</h2>
-      <div style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap">
-        <label>Từ: <input type="date" id="date-from"></label>
-        <label>Đến: <input type="date" id="date-to"></label>
-        <button class="btn btn-primary" onclick="loadRevenue()">Xem báo cáo</button>
+      <div style="display:flex;gap:1.25rem;align-items:flex-end;flex-wrap:wrap">
+        <label style="font-size:0.85rem;font-weight:600;color:var(--text-muted)">Từ ngày:
+          <input type="date" id="date-from" style="margin-top:0.35rem">
+        </label>
+        <label style="font-size:0.85rem;font-weight:600;color:var(--text-muted)">Đến ngày:
+          <input type="date" id="date-to" style="margin-top:0.35rem">
+        </label>
+        <button class="btn btn-primary" onclick="loadRevenue()">🔍 Xem báo cáo</button>
       </div>
     </div>
 
-    <!-- Tổng quan -->
-    <div class="card mb-2">
-      <h2>💰 Tổng quan</h2>
-      <div id="summary" style="font-size:1.1rem">Nhấn "Xem báo cáo" để tải dữ liệu</div>
+    <!-- Tổng quan KPI Cards -->
+    <div id="summary" class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-label">Đang tải số liệu...</div>
+      </div>
     </div>
 
     <div class="grid-2">
@@ -94,18 +99,26 @@
         if (!res.ok) throw new Error('Lỗi tải doanh thu');
         var data = await res.json();
 
-        // Tổng quan
+        // Tổng quan KPI Cards
         var summary = document.getElementById('summary');
         summary.innerHTML = '';
-        var totalOrders = document.createElement('div');
-        totalOrders.textContent = 'Tổng số đơn đã thanh toán: ' + data.summary.total_orders;
-        var totalRev = document.createElement('div');
-        totalRev.style.fontWeight = 'bold';
-        totalRev.style.color = '#e65100';
-        totalRev.style.fontSize = '1.3rem';
-        totalRev.textContent = 'Tổng doanh thu: ' + formatVND(data.summary.total_revenue);
-        summary.appendChild(totalOrders);
-        summary.appendChild(totalRev);
+
+        var cardRev = document.createElement('div');
+        cardRev.className = 'kpi-card';
+        cardRev.innerHTML = '<div class="kpi-label">💰 Tổng doanh thu</div><div class="kpi-value gradient">' + formatVND(data.summary.total_revenue) + '</div>';
+
+        var cardOrders = document.createElement('div');
+        cardOrders.className = 'kpi-card';
+        cardOrders.innerHTML = '<div class="kpi-label">🧾 Đơn đã thanh toán</div><div class="kpi-value">' + data.summary.total_orders + ' <span style="font-size:1rem;font-weight:600;color:var(--text-muted)">đơn</span></div>';
+
+        var avgOrder = data.summary.total_orders > 0 ? (parseFloat(data.summary.total_revenue) / data.summary.total_orders) : 0;
+        var cardAvg = document.createElement('div');
+        cardAvg.className = 'kpi-card';
+        cardAvg.innerHTML = '<div class="kpi-label">📊 Trung bình / đơn</div><div class="kpi-value" style="color:var(--accent)">' + formatVND(avgOrder) + '</div>';
+
+        summary.appendChild(cardRev);
+        summary.appendChild(cardOrders);
+        summary.appendChild(cardAvg);
 
         // Doanh thu theo ngày
         var dailyBody = document.getElementById('daily-body');
@@ -150,14 +163,13 @@
           data.top_items.forEach(function(item) {
             var tr = document.createElement('tr');
             var td1 = document.createElement('td');
-            td1.textContent = item.name;
+            td1.innerHTML = '<strong>' + item.name + '</strong>';
             var td2 = document.createElement('td');
-            td2.textContent = getCategoryLabel(item.category);
+            td2.innerHTML = '<span class="badge" style="background:#f1f5f9;color:#475569;font-size:0.75rem">' + getCategoryLabel(item.category) + '</span>';
             var td3 = document.createElement('td');
-            td3.textContent = item.total_sold;
+            td3.innerHTML = '<span style="font-weight:700;color:var(--text-main)">' + item.total_sold + '</span>';
             var td4 = document.createElement('td');
-            td4.textContent = formatVND(item.total_revenue);
-            td4.style.fontWeight = 'bold';
+            td4.innerHTML = '<span style="font-weight:800;color:#ea580c">' + formatVND(item.total_revenue) + '</span>';
             tr.appendChild(td1);
             tr.appendChild(td2);
             tr.appendChild(td3);

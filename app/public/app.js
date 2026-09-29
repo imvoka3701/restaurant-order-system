@@ -56,6 +56,17 @@ async function loadTables() {
   } catch (_) { /* lỗi đã hiển thị */ }
 }
 
+// --- Lọc danh mục với giao diện nút bấm ---
+function filterCategory(btn, category) {
+  document.querySelectorAll('.filter-bar .btn').forEach(b => {
+    b.classList.remove('active');
+  });
+  if (btn) {
+    btn.classList.add('active');
+  }
+  loadMenu(category);
+}
+
 // --- Tải thực đơn ---
 async function loadMenu(category) {
   try {
@@ -69,20 +80,39 @@ async function loadMenu(category) {
       const card = document.createElement('div');
       card.className = 'card';
       card.style.cursor = 'pointer';
-      card.style.transition = 'transform 0.2s';
+      card.style.display = 'flex';
+      card.style.flexDirection = 'column';
+      card.style.justifyContent = 'space-between';
+      card.style.padding = '1.25rem';
+
+      const topSection = document.createElement('div');
+      
+      const badge = document.createElement('span');
+      badge.className = 'badge';
+      badge.style.background = '#f1f5f9';
+      badge.style.color = '#475569';
+      badge.style.fontSize = '0.7rem';
+      badge.style.marginBottom = '0.5rem';
+      badge.textContent = getCategoryLabel(item.category);
 
       const name = document.createElement('strong');
+      name.style.display = 'block';
+      name.style.fontSize = '1.05rem';
+      name.style.lineHeight = '1.4';
+      name.style.color = '#0f172a';
       name.textContent = item.name;
 
-      const info = document.createElement('div');
-      info.style.color = '#757575';
-      info.style.fontSize = '0.85rem';
-      info.textContent = getCategoryLabel(item.category);
+      topSection.appendChild(badge);
+      topSection.appendChild(name);
+
+      const bottomSection = document.createElement('div');
+      bottomSection.className = 'flex-between';
+      bottomSection.style.marginTop = '1.25rem';
 
       const price = document.createElement('div');
-      price.style.color = '#e65100';
-      price.style.fontWeight = 'bold';
-      price.style.margin = '0.3rem 0';
+      price.style.color = '#ea580c';
+      price.style.fontWeight = '800';
+      price.style.fontSize = '1.1rem';
       price.textContent = formatVND(item.price);
 
       const btn = document.createElement('button');
@@ -93,20 +123,18 @@ async function loadMenu(category) {
         addToCart(item);
       };
 
-      card.appendChild(name);
-      card.appendChild(info);
-      card.appendChild(price);
-      card.appendChild(btn);
+      bottomSection.appendChild(price);
+      bottomSection.appendChild(btn);
 
-      card.onmouseenter = () => { card.style.transform = 'translateY(-2px)'; };
-      card.onmouseleave = () => { card.style.transform = 'none'; };
+      card.appendChild(topSection);
+      card.appendChild(bottomSection);
       card.onclick = () => addToCart(item);
 
       list.appendChild(card);
     });
 
     if (items.filter(i => i.is_available).length === 0) {
-      list.innerHTML = '<p style="color:#757575">Không có món nào trong danh mục này</p>';
+      list.innerHTML = '<p style="color:#64748b;grid-column:1/-1;text-align:center;padding:2rem">Không có món nào trong danh mục này</p>';
     }
   } catch (_) { /* lỗi đã hiển thị */ }
 }
@@ -161,10 +189,12 @@ function renderCart() {
   container.innerHTML = '';
 
   if (cart.length === 0) {
-    const p = document.createElement('p');
-    p.style.color = '#757575';
-    p.textContent = 'Giỏ hàng trống';
-    container.appendChild(p);
+    const empty = document.createElement('div');
+    empty.style.textAlign = 'center';
+    empty.style.padding = '2.5rem 1rem';
+    empty.style.color = '#94a3b8';
+    empty.innerHTML = '<div style="font-size:2.5rem;margin-bottom:0.75rem">🛒</div><div style="font-weight:600;color:#64748b;margin-bottom:0.25rem">Giỏ hàng đang trống</div><div style="font-size:0.85rem">Chọn món bên thực đơn để thêm</div>';
+    container.appendChild(empty);
     document.getElementById('cart-total').textContent = 'Tổng: 0 ₫';
     return;
   }

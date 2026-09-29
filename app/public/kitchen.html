@@ -81,7 +81,8 @@
       var header = document.createElement('div');
       header.className = 'flex-between mb-1';
       var title = document.createElement('strong');
-      title.textContent = 'Đơn #' + order.id + ' - Bàn ' + order.table_number;
+      title.style.fontSize = '1.05rem';
+      title.textContent = 'Đơn #' + order.id + ' • Bàn ' + order.table_number;
       var badge = document.createElement('span');
       badge.className = 'badge badge-' + order.status.toLowerCase();
       badge.textContent = order.status;
@@ -92,14 +93,15 @@
       // Thời gian tạo
       var time = document.createElement('div');
       time.style.fontSize = '0.8rem';
-      time.style.color = '#757575';
-      time.textContent = new Date(order.created_at).toLocaleString('vi-VN');
+      time.style.color = '#94a3b8';
+      time.style.marginBottom = '0.5rem';
+      time.textContent = '⏱️ ' + new Date(order.created_at).toLocaleTimeString('vi-VN') + ' - ' + new Date(order.created_at).toLocaleDateString('vi-VN');
       card.appendChild(time);
 
       // Danh sách món (sẽ load async)
       var itemsList = document.createElement('div');
-      itemsList.style.margin = '0.5rem 0';
-      itemsList.textContent = 'Đang tải...';
+      itemsList.className = 'order-items-list';
+      itemsList.textContent = 'Đang tải chi tiết...';
       card.appendChild(itemsList);
 
       // Load chi tiết
@@ -109,7 +111,9 @@
           detail.items.forEach(function(item) {
             var p = document.createElement('div');
             p.style.fontSize = '0.9rem';
-            p.textContent = '• ' + item.menu_item_name + ' x' + item.quantity;
+            p.style.display = 'flex';
+            p.style.justifyContent = 'space-between';
+            p.innerHTML = '<span>' + item.menu_item_name + '</span><strong style="color:#f97316">x' + item.quantity + '</strong>';
             itemsList.appendChild(p);
           });
         }
@@ -120,7 +124,8 @@
       // Nút chuyển trạng thái
       var btn = document.createElement('button');
       btn.className = 'btn ' + btnClass;
-      btn.style.marginTop = '0.5rem';
+      btn.style.width = '100%';
+      btn.style.marginTop = '0.75rem';
       btn.textContent = btnLabel;
       btn.onclick = function() { updateStatus(order.id, nextStatus); };
       card.appendChild(btn);
@@ -137,9 +142,14 @@
         var pendingDiv = document.getElementById('pending-orders');
         pendingDiv.innerHTML = '';
         if (pendingOrders.length === 0) {
-          var p = document.createElement('p');
-          p.style.color = '#757575';
-          p.textContent = 'Không có đơn chờ';
+          var p = document.createElement('div');
+          p.style.color = '#94a3b8';
+          p.style.textAlign = 'center';
+          p.style.padding = '2rem 1rem';
+          p.style.background = '#ffffff';
+          p.style.borderRadius = '12px';
+          p.style.border = '1px dashed #cbd5e1';
+          p.innerHTML = '<div style="font-size:1.5rem">☕</div><div style="margin-top:0.25rem">Không có đơn chờ</div>';
           pendingDiv.appendChild(p);
         } else {
           pendingOrders.forEach(function(o) {
@@ -153,13 +163,18 @@
         var prepDiv = document.getElementById('preparing-orders');
         prepDiv.innerHTML = '';
         if (prepOrders.length === 0) {
-          var p2 = document.createElement('p');
-          p2.style.color = '#757575';
-          p2.textContent = 'Không có đơn đang chuẩn bị';
+          var p2 = document.createElement('div');
+          p2.style.color = '#94a3b8';
+          p2.style.textAlign = 'center';
+          p2.style.padding = '2rem 1rem';
+          p2.style.background = '#ffffff';
+          p2.style.borderRadius = '12px';
+          p2.style.border = '1px dashed #cbd5e1';
+          p2.innerHTML = '<div style="font-size:1.5rem">👨‍🍳</div><div style="margin-top:0.25rem">Không có đơn đang nấu</div>';
           prepDiv.appendChild(p2);
         } else {
           prepOrders.forEach(function(o) {
-            prepDiv.appendChild(renderOrder(o, 'SERVED', '✅ Đã phục vụ', 'btn-success'));
+            prepDiv.appendChild(renderOrder(o, 'SERVED', '✅ Đã phục vụ món', 'btn-success'));
           });
         }
       } catch (err) {

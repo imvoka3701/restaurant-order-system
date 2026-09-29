@@ -34,12 +34,12 @@
         <!-- Lọc danh mục -->
         <div class="card mb-2">
           <h2>🍽️ Thực đơn</h2>
-          <div class="mb-1">
-            <button class="btn btn-sm btn-primary" onclick="loadMenu('')">Tất cả</button>
-            <button class="btn btn-sm btn-secondary" onclick="loadMenu('APPETIZER')">Khai vị</button>
-            <button class="btn btn-sm btn-secondary" onclick="loadMenu('MAIN')">Món chính</button>
-            <button class="btn btn-sm btn-secondary" onclick="loadMenu('DESSERT')">Tráng miệng</button>
-            <button class="btn btn-sm btn-secondary" onclick="loadMenu('BEVERAGE')">Đồ uống</button>
+          <div class="filter-bar">
+            <button class="btn btn-sm btn-secondary active" onclick="filterCategory(this, '')">✨ Tất cả</button>
+            <button class="btn btn-sm btn-secondary" onclick="filterCategory(this, 'APPETIZER')">🥟 Khai vị</button>
+            <button class="btn btn-sm btn-secondary" onclick="filterCategory(this, 'MAIN')">🍲 Món chính</button>
+            <button class="btn btn-sm btn-secondary" onclick="filterCategory(this, 'DESSERT')">🍨 Tráng miệng</button>
+            <button class="btn btn-sm btn-secondary" onclick="filterCategory(this, 'BEVERAGE')">🍹 Đồ uống</button>
           </div>
           <div id="menu-list" class="grid"></div>
         </div>
@@ -47,12 +47,12 @@
 
       <!-- Cột phải: Giỏ hàng -->
       <div>
-        <div class="card" style="position:sticky;top:70px;">
+        <div class="card cart-card">
           <h2>🛒 Giỏ hàng</h2>
           <div id="cart-items"></div>
           <div class="cart-total" id="cart-total">Tổng: 0 ₫</div>
           <button class="btn btn-primary" style="width:100%" onclick="submitOrder()" id="btn-submit">
-            Gửi đơn hàng
+            🚀 Gửi đơn hàng
           </button>
         </div>
       </div>
