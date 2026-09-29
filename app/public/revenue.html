@@ -29,7 +29,7 @@
         <label style="font-size:0.85rem;font-weight:600;color:var(--text-muted)">Đến ngày:
           <input type="date" id="date-to" style="margin-top:0.35rem">
         </label>
-        <button class="btn btn-primary" onclick="loadRevenue()">🔍 Xem báo cáo</button>
+        <button class="btn btn-primary" id="btn-load-revenue">🔍 Xem báo cáo</button>
       </div>
     </div>
 
@@ -65,130 +65,6 @@
     </div>
   </div>
 
-  <script>
-    'use strict';
-
-    function formatVND(amount) {
-      return new Intl.NumberFormat('vi-VN').format(amount) + ' ₫';
-    }
-
-    function getCategoryLabel(cat) {
-      var labels = { APPETIZER:'Khai vị', MAIN:'Món chính', DESSERT:'Tráng miệng', BEVERAGE:'Đồ uống' };
-      return labels[cat] || cat;
-    }
-
-    function showAlert(msg, type) {
-      var box = document.getElementById('alert-box');
-      var div = document.createElement('div');
-      div.className = 'alert alert-' + type;
-      div.textContent = msg;
-      box.innerHTML = '';
-      box.appendChild(div);
-      setTimeout(function() { if (box.contains(div)) box.removeChild(div); }, 3000);
-    }
-
-    async function loadRevenue() {
-      try {
-        var from = document.getElementById('date-from').value;
-        var to = document.getElementById('date-to').value;
-        var params = new URLSearchParams();
-        if (from) params.set('from', from);
-        if (to) params.set('to', to);
-
-        var res = await fetch('/api/revenue/summary?' + params.toString());
-        if (!res.ok) throw new Error('Lỗi tải doanh thu');
-        var data = await res.json();
-
-        // Tổng quan KPI Cards
-        var summary = document.getElementById('summary');
-        summary.innerHTML = '';
-
-        var cardRev = document.createElement('div');
-        cardRev.className = 'kpi-card';
-        cardRev.innerHTML = '<div class="kpi-label">💰 Tổng doanh thu</div><div class="kpi-value gradient">' + formatVND(data.summary.total_revenue) + '</div>';
-
-        var cardOrders = document.createElement('div');
-        cardOrders.className = 'kpi-card';
-        cardOrders.innerHTML = '<div class="kpi-label">🧾 Đơn đã thanh toán</div><div class="kpi-value">' + data.summary.total_orders + ' <span style="font-size:1rem;font-weight:600;color:var(--text-muted)">đơn</span></div>';
-
-        var avgOrder = data.summary.total_orders > 0 ? (parseFloat(data.summary.total_revenue) / data.summary.total_orders) : 0;
-        var cardAvg = document.createElement('div');
-        cardAvg.className = 'kpi-card';
-        cardAvg.innerHTML = '<div class="kpi-label">📊 Trung bình / đơn</div><div class="kpi-value" style="color:var(--accent)">' + formatVND(avgOrder) + '</div>';
-
-        summary.appendChild(cardRev);
-        summary.appendChild(cardOrders);
-        summary.appendChild(cardAvg);
-
-        // Doanh thu theo ngày
-        var dailyBody = document.getElementById('daily-body');
-        dailyBody.innerHTML = '';
-        if (data.daily.length === 0) {
-          var tr = document.createElement('tr');
-          var td = document.createElement('td');
-          td.colSpan = 3;
-          td.textContent = 'Chưa có dữ liệu';
-          td.style.color = '#757575';
-          tr.appendChild(td);
-          dailyBody.appendChild(tr);
-        } else {
-          data.daily.forEach(function(d) {
-            var tr = document.createElement('tr');
-            var td1 = document.createElement('td');
-            td1.textContent = d.date ? d.date.split('T')[0] : '';
-            var td2 = document.createElement('td');
-            td2.textContent = d.total_orders;
-            var td3 = document.createElement('td');
-            td3.textContent = formatVND(d.revenue);
-            td3.style.fontWeight = 'bold';
-            tr.appendChild(td1);
-            tr.appendChild(td2);
-            tr.appendChild(td3);
-            dailyBody.appendChild(tr);
-          });
-        }
-
-        // Top món bán chạy
-        var topBody = document.getElementById('top-items-body');
-        topBody.innerHTML = '';
-        if (data.top_items.length === 0) {
-          var tr2 = document.createElement('tr');
-          var td2b = document.createElement('td');
-          td2b.colSpan = 4;
-          td2b.textContent = 'Chưa có dữ liệu';
-          td2b.style.color = '#757575';
-          tr2.appendChild(td2b);
-          topBody.appendChild(tr2);
-        } else {
-          data.top_items.forEach(function(item) {
-            var tr = document.createElement('tr');
-            var td1 = document.createElement('td');
-            td1.innerHTML = '<strong>' + item.name + '</strong>';
-            var td2 = document.createElement('td');
-            td2.innerHTML = '<span class="badge" style="background:#f1f5f9;color:#475569;font-size:0.75rem">' + getCategoryLabel(item.category) + '</span>';
-            var td3 = document.createElement('td');
-            td3.innerHTML = '<span style="font-weight:700;color:var(--text-main)">' + item.total_sold + '</span>';
-            var td4 = document.createElement('td');
-            td4.innerHTML = '<span style="font-weight:800;color:#ea580c">' + formatVND(item.total_revenue) + '</span>';
-            tr.appendChild(td1);
-            tr.appendChild(td2);
-            tr.appendChild(td3);
-            tr.appendChild(td4);
-            topBody.appendChild(tr);
-          });
-        }
-      } catch (err) {
-        showAlert(err.message, 'error');
-      }
-    }
-
-    document.addEventListener('DOMContentLoaded', function() {
-      // Set ngày mặc định: hôm nay
-      var today = new Date().toISOString().split('T')[0];
-      document.getElementById('date-from').value = today;
-      document.getElementById('date-to').value = today;
-      loadRevenue();
-    });
-  </script>
+  <script src="/revenue.js"></script>
 </body>
 </html>
