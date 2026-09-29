@@ -1,0 +1,34 @@
+# === Biến môi trường / Bí mật ===
+.env
+.env.*
+!.env.example
+
+# === Node.js ===
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# === TLS certificates (không commit khóa riêng) ===
+nginx/certs/*.key
+nginx/certs/*.crt
+nginx/certs/*.pem
+
+# === Docker volume data ===
+postgres_data/
+pgadmin_data/
+
+# === Log files ===
+*.log
+
+# === IDE / Editor ===
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# === OS ===
+.DS_Store
+Thumbs.db
+desktop.ini

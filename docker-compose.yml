@@ -1,0 +1,119 @@
+# ============================================================
+# docker-compose.yml - Hệ thống Quản lý Nhà hàng
+# Services: Nginx, Node.js App, PostgreSQL, pgAdmin
+# Không có trường 'version' (Docker Compose v2+)
+# ============================================================
+
+services:
+  # --- Nginx Reverse Proxy (HTTPS) ---
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: nginx-proxy
+    restart: unless-stopped
+    ports:
+      - "8080:80"   # HTTP (redirect sang HTTPS) - dùng 8080 vì port 80 bị chiếm
+      - "443:443"   # HTTPS
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro   # Cấu hình (read-only)
+      - ./nginx/certs:/etc/nginx/certs:ro              # TLS certificates (read-only)
+    depends_on:
+      restaurant-app:
+        condition: service_healthy
+    networks:
+      - frontend-net   # Publish port ra ngoài
+      - backend-net    # Proxy tới app và pgAdmin
+
+  # --- Ứng dụng Node.js (Express) ---
+  restaurant-app:
+    build: ./app
+    container_name: restaurant-app
+    restart: unless-stopped
+    # KHÔNG publish port - chỉ truy cập qua Nginx
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=${POSTGRES_DB}
+      - DB_USER=${APP_DB_USER}
+      - DB_PASS=${APP_DB_PASS}
+      - PORT=3000
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - backend-net    # Chỉ mạng nội bộ
+
+  # --- PostgreSQL 16 ---
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres-db
+    restart: unless-stopped
+    # KHÔNG publish port - chỉ truy cập nội bộ
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      # Biến cho script 03-roles.sh
+      - APP_DB_USER=${APP_DB_USER}
+      - APP_DB_PASS=${APP_DB_PASS}
+      - EXPORTER_DB_PASS=${EXPORTER_DB_PASS}
+    volumes:
+      # Mount scripts init (chỉ chạy khi volume trống)
+      - ./postgres:/docker-entrypoint-initdb.d:ro
+      # Persistent data
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - backend-net    # Chỉ mạng nội bộ
+
+  # --- pgAdmin 4 (Quản lý PostgreSQL qua web) ---
+  pgadmin:
+    image: dpage/pgadmin4:8
+    container_name: pgadmin-ui
+    restart: unless-stopped
+    # KHÔNG publish port - truy cập qua Nginx tại /pgadmin/
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=${PGADMIN_EMAIL}
+      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_PASS}
+      # Chạy ở chế độ Server (có đăng nhập)
+      - PGADMIN_CONFIG_SERVER_MODE=True
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:80/misc/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - backend-net    # Chỉ mạng nội bộ
+
+# ============================================================
+# Networks
+# ============================================================
+networks:
+  # Mạng frontend: Nginx publish port ra ngoài
+  frontend-net:
+    driver: bridge
+
+  # Mạng backend: internal (không truy cập từ host)
+  backend-net:
+    driver: bridge
+    internal: true
+
+  # Mạng monitoring: chuẩn bị cho Prometheus/Grafana ở phase sau
+  monitoring-net:
+    driver: bridge
+
+# ============================================================
+# Volumes (dữ liệu persistent)
+# ============================================================
+volumes:
+  postgres_data:
+    name: restaurant_postgres_data
+  pgadmin_data:
+    name: restaurant_pgadmin_data

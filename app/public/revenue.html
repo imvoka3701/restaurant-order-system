@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Doanh thu - Hệ thống Quản lý Nhà hàng</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <nav>
+    <span class="brand">🍜 Nhà hàng</span>
+    <a href="/">Đặt món</a>
+    <a href="/kitchen.html">Bếp</a>
+    <a href="/cashier.html">Thu ngân</a>
+    <a href="/revenue.html" class="active">Doanh thu</a>
+  </nav>
+
+  <div class="container">
+    <h1>📊 Báo cáo Doanh thu</h1>
+    <div id="alert-box"></div>
+
+    <!-- Bộ lọc ngày -->
+    <div class="card mb-2">
+      <h2>📅 Lọc theo ngày</h2>
+      <div style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap">
+        <label>Từ: <input type="date" id="date-from"></label>
+        <label>Đến: <input type="date" id="date-to"></label>
+        <button class="btn btn-primary" onclick="loadRevenue()">Xem báo cáo</button>
+      </div>
+    </div>
+
+    <!-- Tổng quan -->
+    <div class="card mb-2">
+      <h2>💰 Tổng quan</h2>
+      <div id="summary" style="font-size:1.1rem">Nhấn "Xem báo cáo" để tải dữ liệu</div>
+    </div>
+
+    <div class="grid-2">
+      <!-- Doanh thu theo ngày -->
+      <div class="card">
+        <h2>📈 Doanh thu theo ngày</h2>
+        <table>
+          <thead>
+            <tr><th>Ngày</th><th>Số đơn</th><th>Doanh thu</th></tr>
+          </thead>
+          <tbody id="daily-body"></tbody>
+        </table>
+      </div>
+
+      <!-- Top món bán chạy -->
+      <div class="card">
+        <h2>🏆 Top món bán chạy</h2>
+        <table>
+          <thead>
+            <tr><th>Món</th><th>Danh mục</th><th>SL bán</th><th>Doanh thu</th></tr>
+          </thead>
+          <tbody id="top-items-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    'use strict';
+
+    function formatVND(amount) {
+      return new Intl.NumberFormat('vi-VN').format(amount) + ' ₫';
+    }
+
+    function getCategoryLabel(cat) {
+      var labels = { APPETIZER:'Khai vị', MAIN:'Món chính', DESSERT:'Tráng miệng', BEVERAGE:'Đồ uống' };
+      return labels[cat] || cat;
+    }
+
+    function showAlert(msg, type) {
+      var box = document.getElementById('alert-box');
+      var div = document.createElement('div');
+      div.className = 'alert alert-' + type;
+      div.textContent = msg;
+      box.innerHTML = '';
+      box.appendChild(div);
+      setTimeout(function() { if (box.contains(div)) box.removeChild(div); }, 3000);
+    }
+
+    async function loadRevenue() {
+      try {
+        var from = document.getElementById('date-from').value;
+        var to = document.getElementById('date-to').value;
+        var params = new URLSearchParams();
+        if (from) params.set('from', from);
+        if (to) params.set('to', to);
+
+        var res = await fetch('/api/revenue/summary?' + params.toString());
+        if (!res.ok) throw new Error('Lỗi tải doanh thu');
+        var data = await res.json();
+
+        // Tổng quan
+        var summary = document.getElementById('summary');
+        summary.innerHTML = '';
+        var totalOrders = document.createElement('div');
+        totalOrders.textContent = 'Tổng số đơn đã thanh toán: ' + data.summary.total_orders;
+        var totalRev = document.createElement('div');
+        totalRev.style.fontWeight = 'bold';
+        totalRev.style.color = '#e65100';
+        totalRev.style.fontSize = '1.3rem';
+        totalRev.textContent = 'Tổng doanh thu: ' + formatVND(data.summary.total_revenue);
+        summary.appendChild(totalOrders);
+        summary.appendChild(totalRev);
+
+        // Doanh thu theo ngày
+        var dailyBody = document.getElementById('daily-body');
+        dailyBody.innerHTML = '';
+        if (data.daily.length === 0) {
+          var tr = document.createElement('tr');
+          var td = document.createElement('td');
+          td.colSpan = 3;
+          td.textContent = 'Chưa có dữ liệu';
+          td.style.color = '#757575';
+          tr.appendChild(td);
+          dailyBody.appendChild(tr);
+        } else {
+          data.daily.forEach(function(d) {
+            var tr = document.createElement('tr');
+            var td1 = document.createElement('td');
+            td1.textContent = d.date ? d.date.split('T')[0] : '';
+            var td2 = document.createElement('td');
+            td2.textContent = d.total_orders;
+            var td3 = document.createElement('td');
+            td3.textContent = formatVND(d.revenue);
+            td3.style.fontWeight = 'bold';
+            tr.appendChild(td1);
+            tr.appendChild(td2);
+            tr.appendChild(td3);
+            dailyBody.appendChild(tr);
+          });
+        }
+
+        // Top món bán chạy
+        var topBody = document.getElementById('top-items-body');
+        topBody.innerHTML = '';
+        if (data.top_items.length === 0) {
+          var tr2 = document.createElement('tr');
+          var td2b = document.createElement('td');
+          td2b.colSpan = 4;
+          td2b.textContent = 'Chưa có dữ liệu';
+          td2b.style.color = '#757575';
+          tr2.appendChild(td2b);
+          topBody.appendChild(tr2);
+        } else {
+          data.top_items.forEach(function(item) {
+            var tr = document.createElement('tr');
+            var td1 = document.createElement('td');
+            td1.textContent = item.name;
+            var td2 = document.createElement('td');
+            td2.textContent = getCategoryLabel(item.category);
+            var td3 = document.createElement('td');
+            td3.textContent = item.total_sold;
+            var td4 = document.createElement('td');
+            td4.textContent = formatVND(item.total_revenue);
+            td4.style.fontWeight = 'bold';
+            tr.appendChild(td1);
+            tr.appendChild(td2);
+            tr.appendChild(td3);
+            tr.appendChild(td4);
+            topBody.appendChild(tr);
+          });
+        }
+      } catch (err) {
+        showAlert(err.message, 'error');
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      // Set ngày mặc định: hôm nay
+      var today = new Date().toISOString().split('T')[0];
+      document.getElementById('date-from').value = today;
+      document.getElementById('date-to').value = today;
+      loadRevenue();
+    });
+  </script>
+</body>
+</html>
