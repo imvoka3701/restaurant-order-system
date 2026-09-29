@@ -1,0 +1,39 @@
+# ============================================================
+# prometheus.yml - Cấu hình Prometheus cho Hệ thống Nhà hàng
+# Chu kỳ scrape: 15 giây, 6 scrape jobs
+# ============================================================
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # 1. Prometheus tự giám sát chính nó (server health, TSDB metrics)
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # 2. Ứng dụng Node.js Express (HTTP requests, latency, orders_created, orders_paid)
+  - job_name: 'restaurant-app'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['restaurant-app:3000']
+
+  # 3. cAdvisor (giám sát chỉ số CPU %, RAM của từng Docker container)
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+
+  # 4. Node Exporter (giám sát tài nguyên máy chủ / WSL2 VM: CPU, RAM, Disk)
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+
+  # 5. PostgreSQL Exporter (số kết nối, transaction rate, cache hit ratio)
+  - job_name: 'postgres-exporter'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+
+  # 6. Nginx Exporter (kết nối active, requests rate thu thập từ stub_status)
+  - job_name: 'nginx-exporter'
+    static_configs:
+      - targets: ['nginx-exporter:9113']

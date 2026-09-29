@@ -38,8 +38,45 @@ pool.on('error', (err) => {
 const app = express();
 app.set('trust proxy', 1); // Tin tưởng proxy (Nginx) cho X-Forwarded-*
 
+const {
+  client: promClient,
+  httpRequestsTotal,
+  httpRequestDurationSeconds,
+} = require('./src/metrics');
+
 // Parse JSON body
 app.use(express.json());
+
+// --- Middleware đo Prometheus metrics ---
+// Không đo chính endpoint /metrics
+app.use((req, res, next) => {
+  if (req.path === '/metrics') {
+    return next();
+  }
+
+  const start = process.hrtime();
+
+  res.on('finish', () => {
+    const diff = process.hrtime(start);
+    const durationSeconds = diff[0] + diff[1] / 1e9;
+
+    let route = 'unmatched';
+    if (req.route && req.route.path) {
+      route = (req.baseUrl || '') + req.route.path;
+    }
+
+    const labels = {
+      method: req.method,
+      route,
+      status_code: res.statusCode.toString(),
+    };
+
+    httpRequestsTotal.inc(labels);
+    httpRequestDurationSeconds.observe(labels, durationSeconds);
+  });
+
+  next();
+});
 
 // --- Middleware ghi log JSON (mỗi request 1 dòng) ---
 // Format phù hợp cho Loki truy vấn ở phase sau
@@ -76,11 +113,14 @@ app.get('/health', async (req, res) => {
   }
 });
 
-// --- Placeholder cho /metrics (Phase sau sẽ cài prom-client) ---
-app.get('/metrics', (req, res) => {
-  res.status(501).json({
-    message: 'Metrics endpoint chưa được kích hoạt. Sẽ tích hợp prom-client ở phase sau.',
-  });
+// --- Endpoint /metrics cho Prometheus scrape ---
+app.get('/metrics', async (req, res) => {
+  try {
+    res.set('Content-Type', promClient.register.contentType);
+    res.end(await promClient.register.metrics());
+  } catch (err) {
+    res.status(500).end(err.message);
+  }
 });
 
 // --- Load Routes ---

@@ -46,6 +46,9 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-E
     -- Cấp SELECT, INSERT, UPDATE trên TẤT CẢ bảng (KHÔNG có DELETE, DROP, TRUNCATE)
     GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA public TO ${APP_DB_USER};
 
+    -- Thu hẹp quyền: thu hồi toàn bộ quyền trên bảng users (app chưa dùng bảng này)
+    REVOKE ALL ON TABLE users FROM ${APP_DB_USER};
+
     -- Cấp quyền dùng SEQUENCE (bắt buộc cho INSERT với SERIAL/IDENTITY)
     GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO ${APP_DB_USER};
 

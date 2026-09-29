@@ -1,6 +1,8 @@
 # ============================================================
 # docker-compose.yml - Hệ thống Quản lý Nhà hàng
-# Services: Nginx, Node.js App, PostgreSQL, pgAdmin
+# Services: Nginx, Node.js App, PostgreSQL, pgAdmin,
+#           Prometheus, Grafana, cAdvisor, Node Exporter,
+#           PostgreSQL Exporter, Nginx Exporter
 # Không có trường 'version' (Docker Compose v2+)
 # ============================================================
 
@@ -11,7 +13,7 @@ services:
     container_name: nginx-proxy
     restart: unless-stopped
     ports:
-      - "8080:80"   # HTTP (redirect sang HTTPS) - dùng 8080 vì port 80 bị chiếm
+      - "8080:80"   # HTTP (redirect sang HTTPS) - dùng 8080 vì port 80 bị chiếm bởi Windows http.sys
       - "443:443"   # HTTPS
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro   # Cấu hình (read-only)
@@ -20,15 +22,16 @@ services:
       restaurant-app:
         condition: service_healthy
     networks:
-      - frontend-net   # Publish port ra ngoài
-      - backend-net    # Proxy tới app và pgAdmin
+      - frontend-net    # Publish port ra ngoài
+      - backend-net     # Proxy tới app và pgAdmin
+      - monitoring-net  # Nginx exporter scrape qua cổng 8081
 
   # --- Ứng dụng Node.js (Express) ---
   restaurant-app:
     build: ./app
     container_name: restaurant-app
     restart: unless-stopped
-    # KHÔNG publish port - chỉ truy cập qua Nginx
+    # KHÔNG publish port - chỉ truy cập qua Nginx và scrape bởi Prometheus
     environment:
       - DB_HOST=postgres
       - DB_PORT=5432
@@ -40,7 +43,8 @@ services:
       postgres:
         condition: service_healthy
     networks:
-      - backend-net    # Chỉ mạng nội bộ
+      - backend-net     # Kết nối tới database nội bộ
+      - monitoring-net  # Prometheus scrape /metrics trực tiếp
 
   # --- PostgreSQL 16 ---
   postgres:
@@ -92,6 +96,99 @@ services:
     networks:
       - backend-net    # Chỉ mạng nội bộ
 
+  # ============================================================
+  # MONITORING STACK (Phase 2)
+  # ============================================================
+
+  # --- Prometheus TSDB & Monitoring Server ---
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    container_name: prometheus
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=7d
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "127.0.0.1:9090:9090"   # Chỉ bind localhost
+    networks:
+      - monitoring-net
+
+  # --- Grafana Dashboard ---
+  grafana:
+    image: grafana/grafana:10.4.2
+    container_name: grafana
+    restart: unless-stopped
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASS}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "127.0.0.1:3000:3000"   # Chỉ bind localhost
+    depends_on:
+      - prometheus
+    networks:
+      - monitoring-net
+
+  # --- cAdvisor (Container Resource Usage) ---
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    container_name: cadvisor
+    restart: unless-stopped
+    privileged: true
+    devices:
+      - /dev/kmsg
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    networks:
+      - monitoring-net
+
+  # --- Node Exporter (Host / WSL2 VM Hardware Metrics) ---
+  # Lưu ý: Trên Docker Desktop Windows, node-exporter đo tài nguyên của WSL2 Linux VM.
+  # Do Docker Desktop WSL2 không hỗ trợ rslave mount trên /, chạy node-exporter không mount rootfs theo hướng dẫn.
+  node-exporter:
+    image: prom/node-exporter:v1.7.0
+    container_name: node-exporter
+    restart: unless-stopped
+    networks:
+      - monitoring-net
+
+  # --- PostgreSQL Exporter (PostgreSQL Database Metrics) ---
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    container_name: postgres-exporter
+    restart: unless-stopped
+    environment:
+      # Sử dụng role exporter (least privilege) với pg_monitor
+      - DATA_SOURCE_NAME=postgresql://exporter:${EXPORTER_DB_PASS}@postgres:5432/${POSTGRES_DB}?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - backend-net     # Kết nối database
+      - monitoring-net  # Prometheus scrape
+
+  # --- Nginx Exporter (Nginx stub_status Metrics) ---
+  nginx-exporter:
+    image: nginx/nginx-prometheus-exporter:1.1.0
+    container_name: nginx-exporter
+    restart: unless-stopped
+    command:
+      - --nginx.scrape-uri=http://nginx-proxy:8081/stub_status
+    depends_on:
+      - nginx
+    networks:
+      - monitoring-net
+
 # ============================================================
 # Networks
 # ============================================================
@@ -105,7 +202,7 @@ networks:
     driver: bridge
     internal: true
 
-  # Mạng monitoring: chuẩn bị cho Prometheus/Grafana ở phase sau
+  # Mạng monitoring: bridge thường (cho phép Prometheus & Grafana bind 127.0.0.1)
   monitoring-net:
     driver: bridge
 
@@ -117,3 +214,7 @@ volumes:
     name: restaurant_postgres_data
   pgadmin_data:
     name: restaurant_pgadmin_data
+  prometheus_data:
+    name: restaurant_prometheus_data
+  grafana_data:
+    name: restaurant_grafana_data
