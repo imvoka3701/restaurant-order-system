@@ -8,6 +8,7 @@
 'use strict';
 
 const { Router } = require('express');
+const { ordersCreatedTotal, ordersPaidTotal } = require('../metrics');
 
 // Luồng trạng thái hợp lệ (chỉ tiến, không lùi)
 const STATUS_FLOW = {
@@ -116,6 +117,7 @@ module.exports = function createOrdersRouter(pool) {
       );
 
       await client.query('COMMIT');
+      ordersCreatedTotal.inc();
 
       // Trả kết quả kèm chi tiết items
       const result = await pool.query(
@@ -266,6 +268,9 @@ module.exports = function createOrdersRouter(pool) {
       }
 
       await client.query('COMMIT');
+      if (newStatus.toUpperCase() === 'PAID') {
+        ordersPaidTotal.inc();
+      }
       res.json(updated.rows[0]);
     } catch (err) {
       await client.query('ROLLBACK').catch(() => {});

@@ -31,28 +31,44 @@
           </select>
         </div>
 
-        <!-- Lọc danh mục -->
+        <!-- Thực đơn, Lọc danh mục & Sắp xếp -->
         <div class="card mb-2">
-          <h2>🍽️ Thực đơn</h2>
-          <div class="mb-1">
-            <button class="btn btn-sm btn-primary" onclick="loadMenu('')">Tất cả</button>
-            <button class="btn btn-sm btn-secondary" onclick="loadMenu('APPETIZER')">Khai vị</button>
-            <button class="btn btn-sm btn-secondary" onclick="loadMenu('MAIN')">Món chính</button>
-            <button class="btn btn-sm btn-secondary" onclick="loadMenu('DESSERT')">Tráng miệng</button>
-            <button class="btn btn-sm btn-secondary" onclick="loadMenu('BEVERAGE')">Đồ uống</button>
+          <div class="flex-between mb-1" style="flex-wrap:wrap;gap:0.75rem">
+            <h2>🍽️ Thực đơn món ăn</h2>
+            <div style="display:flex;gap:0.5rem;align-items:center">
+              <label for="sort-select" style="font-size:0.85rem;color:var(--text-muted);font-weight:600;white-space:nowrap">Sắp xếp:</label>
+              <select id="sort-select" style="padding:0.4rem 2rem 0.4rem 0.75rem;font-size:0.85rem;width:auto">
+                <option value="default">Mặc định (A - Z)</option>
+                <option value="price-asc">Giá: Thấp đến Cao ⬆️</option>
+                <option value="price-desc">Giá: Cao đến Thấp ⬇️</option>
+              </select>
+            </div>
           </div>
+
+          <!-- Tìm kiếm & Lọc danh mục -->
+          <div style="margin-bottom:1rem">
+            <input type="text" id="search-input" placeholder="🔍 Tìm kiếm món ăn theo tên..." style="margin-bottom:0.75rem">
+            <div class="filter-bar" id="category-filter-bar">
+              <button class="btn btn-sm btn-secondary active" data-category="">✨ Tất cả</button>
+              <button class="btn btn-sm btn-secondary" data-category="APPETIZER">🥟 Khai vị</button>
+              <button class="btn btn-sm btn-secondary" data-category="MAIN">🍲 Món chính</button>
+              <button class="btn btn-sm btn-secondary" data-category="DESSERT">🍨 Tráng miệng</button>
+              <button class="btn btn-sm btn-secondary" data-category="BEVERAGE">🍹 Đồ uống</button>
+            </div>
+          </div>
+
           <div id="menu-list" class="grid"></div>
         </div>
       </div>
 
       <!-- Cột phải: Giỏ hàng -->
       <div>
-        <div class="card" style="position:sticky;top:70px;">
+        <div class="card cart-card">
           <h2>🛒 Giỏ hàng</h2>
           <div id="cart-items"></div>
           <div class="cart-total" id="cart-total">Tổng: 0 ₫</div>
-          <button class="btn btn-primary" style="width:100%" onclick="submitOrder()" id="btn-submit">
-            Gửi đơn hàng
+          <button class="btn btn-primary" style="width:100%" id="btn-submit">
+            🚀 Gửi đơn hàng
           </button>
         </div>
       </div>

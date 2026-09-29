@@ -10,7 +10,7 @@ Hệ thống quản lý đặt món, theo dõi đơn hàng, thanh toán và báo
                     └──────────────┬───────────────────┘
                                    │
                           ┌────────┴────────┐
-                          │   Nginx Proxy   │ :80 (→301) / :443 (HTTPS)
+                          │   Nginx Proxy   │ :8080 (→301) / :443 (HTTPS)
                           │  nginx:1.25     │
                           │  [frontend-net] │
                           │  [backend-net]  │
@@ -96,6 +96,8 @@ docker compose ps
 ```
 
 ### Bước 6: Truy cập
+
+> 💡 **Lưu ý về cổng HTTP:** Do tiến trình hệ thống Windows `http.sys` (PID 4) thường chiếm cổng 80, Nginx được ánh xạ cổng HTTP trên Host là `8080:80` (khi truy cập `http://restaurant.local:8080/` sẽ tự động redirect 301 sang HTTPS). URL truy cập chính thức của ứng dụng vẫn là **`https://restaurant.local`** (cổng 443 HTTPS chuẩn).
 
 | Trang | URL |
 |---|---|
