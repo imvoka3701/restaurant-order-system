@@ -1,37 +1,76 @@
 # ============================================================
-# docker-compose.yml - Hệ thống Quản lý Nhà hàng
-# Services: Nginx, Node.js App, PostgreSQL, pgAdmin,
-#           Prometheus, Grafana, cAdvisor, Node Exporter,
-#           PostgreSQL Exporter, Nginx Exporter
+# docker-compose.yml - Hệ thống Quản lý Nhà hàng (Phase 3)
+# 12 Services: Nginx, App, PostgreSQL, pgAdmin,
+#   Prometheus, Grafana, cAdvisor, Node Exporter,
+#   PostgreSQL Exporter, Nginx Exporter, Loki, Promtail
+# Hardening: read_only, cap_drop, no-new-privileges, mem_limit
 # Không có trường 'version' (Docker Compose v2+)
 # ============================================================
 
+# Cấu hình log mặc định cho tất cả services
+# Promtail docker_sd yêu cầu driver json-file; giới hạn dung lượng chống đầy đĩa
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
+  # ============================================================
+  # TIER ỨNG DỤNG
+  # ============================================================
+
   # --- Nginx Reverse Proxy (HTTPS) ---
+  # Mạng: frontend-net (publish port), backend-net (proxy tới app/pgadmin), monitoring-net (exporter scrape 8081)
   nginx:
     image: nginx:1.25-alpine
     container_name: nginx-proxy
     restart: unless-stopped
     ports:
-      - "8080:80"   # HTTP (redirect sang HTTPS) - dùng 8080 vì port 80 bị chiếm bởi Windows http.sys
+      - "8080:80"   # HTTP redirect → HTTPS (dùng 8080 vì port 80 bị Windows http.sys chiếm)
       - "443:443"   # HTTPS
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro   # Cấu hình (read-only)
-      - ./nginx/certs:/etc/nginx/certs:ro              # TLS certificates (read-only)
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
     depends_on:
       restaurant-app:
         condition: service_healthy
+    # Hardening: read_only + tmpfs cho thư mục ghi tạm
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx
+      - /var/run
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    # Nginx cần bind port 80/443 (<1024) và chuyển owner file
+    cap_add:
+      - CHOWN
+      - SETUID
+      - SETGID
+      - NET_BIND_SERVICE
+    mem_limit: 128m
+    pids_limit: 200
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8081/stub_status"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging: *default-logging
     networks:
-      - frontend-net    # Publish port ra ngoài
-      - backend-net     # Proxy tới app và pgAdmin
-      - monitoring-net  # Nginx exporter scrape qua cổng 8081
+      - frontend-net
+      - backend-net
+      - monitoring-net
 
   # --- Ứng dụng Node.js (Express) ---
+  # Mạng: chỉ backend-net (cô lập khỏi Internet, Prometheus scrape qua backend-net)
   restaurant-app:
     build: ./app
     container_name: restaurant-app
     restart: unless-stopped
-    # KHÔNG publish port - chỉ truy cập qua Nginx và scrape bởi Prometheus
     environment:
       - DB_HOST=postgres
       - DB_PORT=5432
@@ -42,28 +81,37 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    # Hardening: Dockerfile đã dùng USER node; read_only + tmpfs /tmp
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    mem_limit: 256m
+    pids_limit: 200
+    logging: *default-logging
     networks:
-      - backend-net     # Kết nối tới database nội bộ
-      - monitoring-net  # Prometheus scrape /metrics trực tiếp
+      # Chỉ backend-net: cô lập khỏi Internet, không cần monitoring-net
+      # Prometheus nay cũng ở backend-net nên vẫn scrape được /metrics
+      - backend-net
 
   # --- PostgreSQL 16 ---
+  # Mạng: chỉ backend-net (cô lập hoàn toàn)
   postgres:
     image: postgres:16-alpine
     container_name: postgres-db
     restart: unless-stopped
-    # KHÔNG publish port - chỉ truy cập nội bộ
     environment:
       - POSTGRES_DB=${POSTGRES_DB}
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      # Biến cho script 03-roles.sh
       - APP_DB_USER=${APP_DB_USER}
       - APP_DB_PASS=${APP_DB_PASS}
       - EXPORTER_DB_PASS=${EXPORTER_DB_PASS}
     volumes:
-      # Mount scripts init (chỉ chạy khi volume trống)
       - ./postgres:/docker-entrypoint-initdb.d:ro
-      # Persistent data
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
@@ -71,19 +119,37 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+    # Hardening: read_only + tmpfs cho runtime dirs; cap giữ lại cho init entrypoint
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/run/postgresql
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETUID
+      - SETGID
+    mem_limit: 512m
+    pids_limit: 200
+    logging: *default-logging
     networks:
-      - backend-net    # Chỉ mạng nội bộ
+      - backend-net
 
-  # --- pgAdmin 4 (Quản lý PostgreSQL qua web) ---
+  # --- pgAdmin 4 ---
+  # Mạng: chỉ backend-net
+  # Ngoại lệ: không dùng read_only/cap_drop vì pgAdmin ghi nhiều file runtime
   pgadmin:
     image: dpage/pgadmin4:8
     container_name: pgadmin-ui
     restart: unless-stopped
-    # KHÔNG publish port - truy cập qua Nginx tại /pgadmin/
     environment:
       - PGADMIN_DEFAULT_EMAIL=${PGADMIN_EMAIL}
       - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_PASS}
-      # Chạy ở chế độ Server (có đăng nhập)
       - PGADMIN_CONFIG_SERVER_MODE=True
     volumes:
       - pgadmin_data:/var/lib/pgadmin
@@ -93,14 +159,21 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
+    # Hardening tối thiểu: chỉ no-new-privileges (pgAdmin cần ghi nhiều thư mục)
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 512m
+    pids_limit: 200
+    logging: *default-logging
     networks:
-      - backend-net    # Chỉ mạng nội bộ
+      - backend-net
 
   # ============================================================
   # MONITORING STACK (Phase 2)
   # ============================================================
 
-  # --- Prometheus TSDB & Monitoring Server ---
+  # --- Prometheus TSDB ---
+  # Mạng: monitoring-net + backend-net (làm cầu nối scrape app/postgres-exporter qua backend-net)
   prometheus:
     image: prom/prometheus:v2.53.0
     container_name: prometheus
@@ -112,9 +185,29 @@ services:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
     ports:
-      - "127.0.0.1:9090:9090"   # Chỉ bind localhost
+      - "127.0.0.1:9090:9090"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9090/-/healthy"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    # Hardening: read_only, user nobody (65534) trong image
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    mem_limit: 512m
+    pids_limit: 200
+    logging: *default-logging
     networks:
       - monitoring-net
+      # Thêm backend-net: Prometheus cần scrape restaurant-app và postgres-exporter
+      # (đã gỡ chúng khỏi monitoring-net để cô lập egress)
+      - backend-net
 
   # --- Grafana Dashboard ---
   grafana:
@@ -125,18 +218,43 @@ services:
       - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER}
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASS}
       - GF_USERS_ALLOW_SIGN_UP=false
+      # Hardening Grafana: tắt analytics, gravatar
+      - GF_ANALYTICS_REPORTING_ENABLED=false
+      - GF_ANALYTICS_CHECK_FOR_UPDATES=false
+      - GF_SECURITY_DISABLE_GRAVATAR=true
     volumes:
       - grafana_data:/var/lib/grafana
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
     ports:
-      - "127.0.0.1:3000:3000"   # Chỉ bind localhost
+      - "127.0.0.1:3000:3000"
     depends_on:
-      - prometheus
+      prometheus:
+        condition: service_healthy
+      loki:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    # Hardening: read_only + tmpfs; Grafana ghi plugin cache vào /tmp
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    mem_limit: 384m
+    pids_limit: 200
+    logging: *default-logging
     networks:
       - monitoring-net
 
   # --- cAdvisor (Container Resource Usage) ---
+  # Ngoại lệ bắt buộc: privileged: true + devices /dev/kmsg để đọc cgroups
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:v0.49.1
     container_name: cadvisor
@@ -149,35 +267,58 @@ services:
       - /var/run:/var/run:ro
       - /sys:/sys:ro
       - /var/lib/docker/:/var/lib/docker:ro
+    mem_limit: 256m
+    pids_limit: 200
+    logging: *default-logging
     networks:
       - monitoring-net
 
-  # --- Node Exporter (Host / WSL2 VM Hardware Metrics) ---
-  # Lưu ý: Trên Docker Desktop Windows, node-exporter đo tài nguyên của WSL2 Linux VM.
-  # Do Docker Desktop WSL2 không hỗ trợ rslave mount trên /, chạy node-exporter không mount rootfs theo hướng dẫn.
+  # --- Node Exporter (WSL2 VM Metrics) ---
+  # Trên Docker Desktop Windows: đo tài nguyên WSL2 Linux VM, không phải host Windows
+  # Không mount rootfs do lỗi rslave trên Docker Desktop WSL2
   node-exporter:
     image: prom/node-exporter:v1.7.0
     container_name: node-exporter
     restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    mem_limit: 64m
+    pids_limit: 200
+    logging: *default-logging
     networks:
       - monitoring-net
 
-  # --- PostgreSQL Exporter (PostgreSQL Database Metrics) ---
+  # --- PostgreSQL Exporter ---
+  # Mạng: chỉ backend-net (cô lập khỏi Internet; Prometheus scrape qua backend-net)
   postgres-exporter:
     image: prometheuscommunity/postgres-exporter:v0.15.0
     container_name: postgres-exporter
     restart: unless-stopped
     environment:
-      # Sử dụng role exporter (least privilege) với pg_monitor
       - DATA_SOURCE_NAME=postgresql://exporter:${EXPORTER_DB_PASS}@postgres:5432/${POSTGRES_DB}?sslmode=disable
     depends_on:
       postgres:
         condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    mem_limit: 64m
+    pids_limit: 200
+    logging: *default-logging
     networks:
-      - backend-net     # Kết nối database
-      - monitoring-net  # Prometheus scrape
+      # Chỉ backend-net: kết nối DB + Prometheus scrape (Prometheus nay cũng ở backend-net)
+      - backend-net
 
-  # --- Nginx Exporter (Nginx stub_status Metrics) ---
+  # --- Nginx Exporter ---
   nginx-exporter:
     image: nginx/nginx-prometheus-exporter:1.1.0
     container_name: nginx-exporter
@@ -186,6 +327,75 @@ services:
       - --nginx.scrape-uri=http://nginx-proxy:8081/stub_status
     depends_on:
       - nginx
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    mem_limit: 64m
+    pids_limit: 200
+    logging: *default-logging
+    networks:
+      - monitoring-net
+
+  # ============================================================
+  # LOGGING STACK (Phase 3)
+  # ============================================================
+
+  # --- Loki (Log Aggregation Server) ---
+  loki:
+    image: grafana/loki:2.9.4
+    container_name: loki
+    restart: unless-stopped
+    command:
+      - -config.file=/etc/loki/config.yaml
+    volumes:
+      - ./logging/loki-config.yaml:/etc/loki/config.yaml:ro
+      - loki_data:/loki
+    # Loki chạy user 10001; đảm bảo volume /loki ghi được
+    user: "10001"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3100/ready"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    mem_limit: 512m
+    pids_limit: 200
+    logging: *default-logging
+    networks:
+      - monitoring-net
+
+  # --- Promtail (Log Collector) ---
+  # Ngoại lệ hardening: chạy root vì cần đọc docker.sock
+  promtail:
+    image: grafana/promtail:2.9.4
+    container_name: promtail
+    restart: unless-stopped
+    command:
+      - -config.file=/etc/promtail/config.yaml
+    volumes:
+      - ./logging/promtail-config.yaml:/etc/promtail/config.yaml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - promtail_positions:/positions
+    depends_on:
+      loki:
+        condition: service_healthy
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    mem_limit: 128m
+    pids_limit: 200
+    logging: *default-logging
     networks:
       - monitoring-net
 
@@ -193,16 +403,18 @@ services:
 # Networks
 # ============================================================
 networks:
-  # Mạng frontend: Nginx publish port ra ngoài
+  # Mạng frontend: Nginx publish port ra host (Internet-facing)
   frontend-net:
     driver: bridge
 
-  # Mạng backend: internal (không truy cập từ host)
+  # Mạng backend: internal (KHÔNG có đường ra Internet)
+  # Thành viên: nginx, restaurant-app, postgres, pgadmin, postgres-exporter, prometheus
   backend-net:
     driver: bridge
     internal: true
 
-  # Mạng monitoring: bridge thường (cho phép Prometheus & Grafana bind 127.0.0.1)
+  # Mạng monitoring: bridge thường (Prometheus & Grafana cần bind 127.0.0.1)
+  # Thành viên: nginx, prometheus, grafana, loki, promtail, cadvisor, node-exporter, nginx-exporter
   monitoring-net:
     driver: bridge
 
@@ -218,3 +430,7 @@ volumes:
     name: restaurant_prometheus_data
   grafana_data:
     name: restaurant_grafana_data
+  loki_data:
+    name: restaurant_loki_data
+  promtail_positions:
+    name: restaurant_promtail_positions

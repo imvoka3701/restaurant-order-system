@@ -1,0 +1,60 @@
+# ============================================================
+# loki-config.yaml - Cấu hình Grafana Loki (chế độ single binary)
+# Phiên bản: 2.9.x | Lưu trữ filesystem | Retention 7 ngày
+# ============================================================
+
+# Tắt xác thực multi-tenant (dùng single tenant)
+auth_enabled: false
+
+server:
+  http_listen_port: 3100
+
+# Cấu hình ingester (nhận log từ Promtail)
+ingester:
+  lifecycler:
+    ring:
+      kvstore:
+        store: inmemory
+      replication_factor: 1
+  chunk_idle_period: 5m
+  chunk_retain_period: 30s
+  # WAL phải nằm trong volume /loki (container read_only)
+  wal:
+    dir: /loki/wal
+
+# Schema: v12 + tsdb (khuyến nghị cho Loki 2.9.x)
+schema_config:
+  configs:
+    - from: "2024-01-01"
+      store: tsdb
+      object_store: filesystem
+      schema: v12
+      index:
+        prefix: index_
+        period: 24h
+
+# Lưu trữ filesystem trong /loki
+storage_config:
+  tsdb_shipper:
+    active_index_directory: /loki/tsdb-index
+    cache_location: /loki/tsdb-cache
+  filesystem:
+    directory: /loki/chunks
+
+# Compactor: bật retention để tự xóa log cũ
+compactor:
+  working_directory: /loki/compactor
+  retention_enabled: true
+  compaction_interval: 10m
+  retention_delete_delay: 2h
+  retention_delete_worker_count: 150
+
+# Giới hạn: giữ log 7 ngày (168 giờ)
+limits_config:
+  retention_period: 168h
+  reject_old_samples: true
+  reject_old_samples_max_age: 168h
+
+# Tắt gửi thống kê sử dụng về Grafana Labs
+analytics:
+  reporting_enabled: false

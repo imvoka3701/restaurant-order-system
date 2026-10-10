@@ -37,6 +37,7 @@ pool.on('error', (err) => {
 // --- Khởi tạo Express ---
 const app = express();
 app.set('trust proxy', 1); // Tin tưởng proxy (Nginx) cho X-Forwarded-*
+app.disable('x-powered-by'); // Ẩn header X-Powered-By (bảo mật)
 
 const {
   client: promClient,
@@ -44,8 +45,8 @@ const {
   httpRequestDurationSeconds,
 } = require('./src/metrics');
 
-// Parse JSON body
-app.use(express.json());
+// Parse JSON body (Hỗ trợ upload ảnh Base64 lên đến 5MB)
+app.use(express.json({ limit: '5mb' }));
 
 // --- Middleware đo Prometheus metrics ---
 // Không đo chính endpoint /metrics
@@ -128,11 +129,17 @@ const tablesRouter = require('./src/routes/tables');
 const menuRouter = require('./src/routes/menu');
 const ordersRouter = require('./src/routes/orders');
 const revenueRouter = require('./src/routes/revenue');
+const authRouter = require('./src/routes/auth');
+const usersRouter = require('./src/routes/users');
+const reservationsRouter = require('./src/routes/reservations');
 
+app.use('/api/auth', authRouter(pool));
+app.use('/api/users', usersRouter(pool));
 app.use('/api/tables', tablesRouter(pool));
 app.use('/api/menu', menuRouter(pool));
 app.use('/api/orders', ordersRouter(pool));
 app.use('/api/revenue', revenueRouter(pool));
+app.use('/api/reservations', reservationsRouter(pool));
 
 // --- Xử lý lỗi tập trung ---
 app.use((err, req, res, _next) => {

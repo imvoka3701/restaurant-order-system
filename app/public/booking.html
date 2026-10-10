@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Đặt Bàn Trực Tuyến - Nhà Hàng Hương Việt</title>
+  <link rel="stylesheet" href="/style.css">
+  <style>
+    .booking-wrapper {
+      max-width: 800px;
+      margin: 2rem auto 4rem;
+      padding: 0 1.25rem;
+    }
+    .booking-header {
+      text-align: center;
+      margin-bottom: 2.5rem;
+    }
+    .booking-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.35rem 0.85rem;
+      border-radius: var(--radius-full);
+      background: var(--primary-light);
+      color: var(--primary);
+      font-weight: 700;
+      font-size: 0.85rem;
+      margin-bottom: 0.75rem;
+    }
+    .booking-title {
+      font-size: 2.25rem;
+      font-weight: 900;
+      color: var(--text-main);
+      letter-spacing: -0.03em;
+      margin-bottom: 0.5rem;
+    }
+    .booking-subtitle {
+      color: var(--text-muted);
+      font-size: 1.05rem;
+      max-width: 540px;
+      margin: 0 auto;
+    }
+    .booking-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      padding: 2.25rem;
+      box-shadow: var(--shadow-hover);
+    }
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1.25rem;
+      margin-bottom: 1.5rem;
+    }
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+    .form-group label {
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+    .form-control {
+      padding: 0.75rem 1rem;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-md);
+      font-size: 0.95rem;
+      background: #fff;
+      transition: all 0.2s ease;
+      color: var(--text-main);
+    }
+    .form-control:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px var(--primary-glow);
+    }
+    .booking-perks {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-top: 2rem;
+      text-align: center;
+    }
+    .perk-item {
+      background: var(--surface-alt);
+      padding: 1.25rem;
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border);
+    }
+    .perk-icon {
+      font-size: 1.75rem;
+      margin-bottom: 0.35rem;
+    }
+    .perk-title {
+      font-weight: 700;
+      font-size: 0.95rem;
+      margin-bottom: 0.2rem;
+    }
+    .perk-desc {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+  <!-- Header điều hướng công khai -->
+  <nav>
+    <a href="/" class="brand" style="text-decoration:none; color:inherit;">🍜 Nhà Hàng Hương Việt</a>
+    <div style="display:flex; gap:0.5rem; align-items:center;">
+      <a href="/" class="btn btn-sm btn-secondary">🍽️ Thực Đơn</a>
+      <a href="/login.html" class="btn btn-sm btn-secondary">🔐 Nhân Viên Đăng Nhập</a>
+    </div>
+  </nav>
+
+  <div class="booking-wrapper">
+    <div class="booking-header">
+      <div class="booking-badge">✨ Đặt Bàn Giữ Chỗ Tự Động</div>
+      <h1 class="booking-title">Đặt Bàn Trực Tuyến</h1>
+      <p class="booking-subtitle">Thưởng thức hương vị ẩm thực Việt truyền thống trong không gian sang trọng và ấm cúng.</p>
+    </div>
+
+    <div class="booking-card">
+      <div id="bookingAlert" style="display:none; padding:0.9rem 1.25rem; border-radius:var(--radius-md); margin-bottom:1.5rem; font-weight:600; font-size:0.92rem;"></div>
+
+      <form id="bookingForm">
+        <div class="form-grid">
+          <!-- Họ và tên -->
+          <div class="form-group">
+            <label for="custName">Họ và tên của bạn *</label>
+            <input type="text" id="custName" class="form-control" placeholder="Ví dụ: Nguyễn Văn An" required autocomplete="name">
+          </div>
+
+          <!-- Số điện thoại -->
+          <div class="form-group">
+            <label for="custPhone">Số điện thoại liên hệ *</label>
+            <input type="tel" id="custPhone" class="form-control" placeholder="Ví dụ: 0909123456" required autocomplete="tel">
+          </div>
+
+          <!-- Số lượng khách -->
+          <div class="form-group">
+            <label for="guestCount">Số lượng khách *</label>
+            <select id="guestCount" class="form-control" required>
+              <option value="1">1 người</option>
+              <option value="2" selected>2 người (Cặp đôi / Bạn bè)</option>
+              <option value="4">4 người (Gia đình nhỏ)</option>
+              <option value="6">6 người</option>
+              <option value="8">8 người</option>
+              <option value="10">10 người trở lên (Liên hoan / Tiệc)</option>
+            </select>
+          </div>
+
+          <!-- Chọn Bàn ăn trống -->
+          <div class="form-group">
+            <label for="tableSelect">Chọn bàn ăn còn trống *</label>
+            <select id="tableSelect" class="form-control" required>
+              <option value="">⏳ Đang tải danh sách bàn trống...</option>
+            </select>
+          </div>
+
+          <!-- Ngày hẹn -->
+          <div class="form-group">
+            <label for="bookingDate">Ngày đến nhận bàn *</label>
+            <input type="date" id="bookingDate" class="form-control" required>
+          </div>
+
+          <!-- Giờ hẹn -->
+          <div class="form-group">
+            <label for="bookingTime">Khung giờ hẹn *</label>
+            <select id="bookingTime" class="form-control" required>
+              <option value="11:30">11:30 (Trưa)</option>
+              <option value="12:00">12:00 (Trưa)</option>
+              <option value="12:30">12:30 (Trưa)</option>
+              <option value="13:00">13:00 (Trưa)</option>
+              <option value="18:00" selected>18:00 (Tối)</option>
+              <option value="18:30">18:30 (Tối)</option>
+              <option value="19:00">19:00 (Tối)</option>
+              <option value="19:30">19:30 (Tối)</option>
+              <option value="20:00">20:00 (Tối)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Yêu cầu đặc biệt -->
+        <div class="form-group" style="margin-bottom: 2rem;">
+          <label for="specialRequest">Yêu cầu đặc biệt (Không bắt buộc)</label>
+          <textarea id="specialRequest" class="form-control" rows="3" placeholder="Ví dụ: Bàn gần cửa sổ, tiệc sinh nhật cần trang trí, chuẩn bị ghế trẻ em..."></textarea>
+        </div>
+
+        <button type="submit" id="btnSubmitBooking" class="btn btn-primary" style="width: 100%; padding: 0.95rem; font-size: 1.05rem; font-weight: 800; letter-spacing: 0.01em;">
+          🎉 Xác Nhận Đặt Bàn Ngay
+        </button>
+      </form>
+    </div>
+
+    <!-- Tiện ích cam kết -->
+    <div class="booking-perks">
+      <div class="perk-item">
+        <div class="perk-icon">⚡</div>
+        <div class="perk-title">Giữ Chỗ Tức Thì</div>
+        <div class="perk-desc">Bàn của bạn được khóa giữ chỗ tự động ngay khi hoàn tất.</div>
+      </div>
+      <div class="perk-item">
+        <div class="perk-icon">🍲</div>
+        <div class="perk-title">Ẩm Thực Tuyệt Hảo</div>
+        <div class="perk-desc">Đầu bếp chuẩn bị nguyên liệu tươi ngon sẵn sàng phục vụ.</div>
+      </div>
+      <div class="perk-item">
+        <div class="perk-icon">📞</div>
+        <div class="perk-title">Hỗ Trợ 24/7</div>
+        <div class="perk-desc">Hotline hỗ trợ thay đổi giờ hẹn linh hoạt: 0900.123.456</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL XÁC NHẬN ĐẶT BÀN THÀNH CÔNG (100% CSP COMPLIANT) -->
+  <div id="successModal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.65); backdrop-filter:blur(4px); z-index:1000; align-items:center; justify-content:center; padding:1rem;">
+    <div style="background:#fff; border-radius:18px; max-width:460px; width:100%; box-shadow:0 20px 25px -5px rgba(0,0,0,0.25); overflow:hidden; text-align:center;">
+      <div style="padding: 2rem 1.5rem 1.5rem;">
+        <div style="width: 70px; height: 70px; border-radius: 50%; background: var(--success-light); color: var(--success); font-size: 2.25rem; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.25rem; border: 2px solid var(--success-border);">
+          ✓
+        </div>
+        <h3 style="font-size: 1.4rem; font-weight: 800; color: var(--text-main); margin-bottom: 0.4rem;">Đặt Bàn Thành Công!</h3>
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem;">
+          Nhà hàng đã tự động khóa giữ chỗ sẵn sàng đón tiếp quý khách.
+        </p>
+
+        <!-- Thẻ thông tin đặt bàn -->
+        <div id="ticketInfo" style="background: var(--surface-alt); border: 1.5px dashed var(--border); border-radius: var(--radius-lg); padding: 1.25rem; text-align: left; font-size: 0.88rem; margin-bottom: 1.5rem;">
+          <!-- Render thông tin chi tiết -->
+        </div>
+
+        <div style="display: flex; gap: 0.75rem;">
+          <a href="/" class="btn btn-secondary btn-sm" style="flex: 1; padding: 0.65rem; text-decoration: none; text-align: center;">🍽️ Xem Thực Đơn</a>
+          <button type="button" id="btnCloseSuccess" class="btn btn-primary btn-sm" style="flex: 1; padding: 0.65rem;">Hoàn Tất</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/booking.js"></script>
+</body>
+</html>

@@ -63,9 +63,9 @@ module.exports = function createRevenueRouter(pool) {
       const totalRes = await pool.query(
         `SELECT
            COUNT(*)::int AS total_orders,
-           COALESCE(SUM(total_amount), 0) AS total_revenue
-         FROM orders
-         WHERE status = 'PAID' ${dateFilter}`,
+           COALESCE(SUM(o.total_amount), 0) AS total_revenue
+         FROM orders o
+         WHERE o.status = 'PAID' ${dateFilter}`,
         params
       );
 

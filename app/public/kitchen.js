@@ -29,7 +29,10 @@ async function updateStatus(orderId, newStatus) {
   try {
     const res = await fetch('/api/orders/' + orderId + '/status', {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${Auth.getToken()}`,
+      },
       body: JSON.stringify({ status: newStatus }),
     });
     const data = await res.json();
@@ -46,16 +49,49 @@ function renderOrder(order, nextStatus, btnLabel, btnClass) {
   const card = document.createElement('div');
   card.className = 'card';
 
+  // 1. Header vé KDS kèm thời gian chờ & Cảnh báo trễ món (> 15 phút)
+  const elapsedMin = Math.max(0, Math.floor((Date.now() - new Date(order.created_at)) / 60000));
+  const isDelayed = elapsedMin >= 15;
+
+  if (isDelayed) {
+    card.style.border = '2px solid #ef4444';
+    card.style.background = '#fff8f8';
+  }
+
   const header = document.createElement('div');
   header.className = 'flex-between mb-1';
+  header.style.flexWrap = 'wrap';
+  header.style.gap = '0.4rem';
+
   const title = document.createElement('strong');
   title.style.fontSize = '1.05rem';
   title.textContent = 'Đơn #' + order.id + ' • Bàn ' + order.table_number;
+
+  const headerBadges = document.createElement('div');
+  headerBadges.style.display = 'flex';
+  headerBadges.style.alignItems = 'center';
+  headerBadges.style.gap = '0.4rem';
+
+  if (isDelayed) {
+    const delayedBadge = document.createElement('span');
+    delayedBadge.className = 'badge';
+    delayedBadge.style.cssText = 'background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; font-weight: 700;';
+    delayedBadge.textContent = `⚠️ Chờ ${elapsedMin}p (Ưu tiên!)`;
+    headerBadges.appendChild(delayedBadge);
+  } else {
+    const waitBadge = document.createElement('span');
+    waitBadge.style.cssText = 'font-size: 0.78rem; color: #64748b; font-weight: 600; background: #f1f5f9; padding: 2px 6px; border-radius: 4px;';
+    waitBadge.textContent = `⏱️ ${elapsedMin} phút`;
+    headerBadges.appendChild(waitBadge);
+  }
+
   const badge = document.createElement('span');
   badge.className = 'badge badge-' + order.status.toLowerCase();
   badge.textContent = order.status;
+  headerBadges.appendChild(badge);
+
   header.appendChild(title);
-  header.appendChild(badge);
+  header.appendChild(headerBadges);
   card.appendChild(header);
 
   // Thời gian tạo
@@ -63,7 +99,7 @@ function renderOrder(order, nextStatus, btnLabel, btnClass) {
   time.style.fontSize = '0.8rem';
   time.style.color = '#94a3b8';
   time.style.marginBottom = '0.5rem';
-  time.textContent = '⏱️ ' + new Date(order.created_at).toLocaleTimeString('vi-VN') + ' - ' + new Date(order.created_at).toLocaleDateString('vi-VN');
+  time.textContent = '🕒 Đặt lúc: ' + new Date(order.created_at).toLocaleTimeString('vi-VN');
   card.appendChild(time);
 
   // Danh sách món (sẽ load async)
@@ -72,18 +108,30 @@ function renderOrder(order, nextStatus, btnLabel, btnClass) {
   itemsList.textContent = 'Đang tải chi tiết...';
   card.appendChild(itemsList);
 
-  // Load chi tiết
+  // Load chi tiết món ăn (kèm ghi chú dặn dò của khách)
   fetchOrderDetail(order.id).then(detail => {
     itemsList.innerHTML = '';
-    if (detail.items) {
+    if (detail.items && detail.items.length > 0) {
       detail.items.forEach(item => {
-        const p = document.createElement('div');
-        p.style.fontSize = '0.9rem';
-        p.style.display = 'flex';
-        p.style.justifyContent = 'space-between';
-        p.innerHTML = '<span>' + item.menu_item_name + '</span><strong style="color:#f97316">x' + item.quantity + '</strong>';
-        itemsList.appendChild(p);
+        const itemDiv = document.createElement('div');
+        itemDiv.style.cssText = 'padding: 0.4rem 0; border-bottom: 1px dashed #e2e8f0;';
+
+        const row = document.createElement('div');
+        row.style.cssText = 'font-size: 0.92rem; display: flex; justify-content: space-between; align-items: center;';
+        row.innerHTML = `<span style="font-weight: 600; color: var(--text-main);">${item.menu_item_name}</span><strong style="color: #ea580c; font-size: 1rem;">x${item.quantity}</strong>`;
+        itemDiv.appendChild(row);
+
+        if (item.item_notes && item.item_notes.trim()) {
+          const noteDiv = document.createElement('div');
+          noteDiv.style.cssText = 'font-size: 0.8rem; color: #b45309; background: #fffbeb; border: 1px solid #fde68a; padding: 2px 6px; border-radius: 4px; margin-top: 3px; font-weight: 500; display: inline-block;';
+          noteDiv.textContent = '📝 Khách dặn: ' + item.item_notes.trim();
+          itemDiv.appendChild(noteDiv);
+        }
+
+        itemsList.appendChild(itemDiv);
       });
+    } else {
+      itemsList.textContent = 'Không có món ăn trong đơn';
     }
   }).catch(() => {
     itemsList.textContent = 'Không tải được chi tiết';
@@ -152,6 +200,9 @@ async function loadOrders() {
 
 // Khởi tạo và tự refresh mỗi 5 giây
 document.addEventListener('DOMContentLoaded', () => {
+  const user = Auth.requireAuth(['KITCHEN']);
+  if (!user) return;
+  Auth.initNav('kitchen');
   loadOrders();
   setInterval(loadOrders, 5000);
 });

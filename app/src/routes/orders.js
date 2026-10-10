@@ -1,14 +1,16 @@
 // ============================================================
-// routes/orders.js - API quản lý đơn hàng
-// POST   /api/orders              - Tạo đơn mới (transaction)
+// routes/orders.js - API quản lý đơn hàng với Ràng buộc Nghiệp vụ Chặt chẽ
+// POST   /api/orders              - Tạo đơn mới (chỉ Waiter/Khách, cấm Admin)
+// POST   /api/orders/:id/items    - Gọi thêm món vào đơn hiện tại
 // GET    /api/orders              - Danh sách đơn (?status=)
-// GET    /api/orders/:id          - Chi tiết đơn (kèm items)
-// PATCH  /api/orders/:id/status   - Chuyển trạng thái (luồng 1 chiều)
+// GET    /api/orders/:id          - Chi tiết đơn (kèm items & unit_price)
+// PATCH  /api/orders/:id/status   - Chuyển trạng thái & Ghi nhận Thu ngân/Thanh toán
 // ============================================================
 'use strict';
 
 const { Router } = require('express');
 const { ordersCreatedTotal, ordersPaidTotal } = require('../metrics');
+const { optionalAuth, authenticate } = require('../auth');
 
 // Luồng trạng thái hợp lệ (chỉ tiến, không lùi)
 const STATUS_FLOW = {
@@ -22,9 +24,24 @@ module.exports = function createOrdersRouter(pool) {
 
   // POST /api/orders - Tạo đơn hàng mới
   // Chạy trong TRANSACTION để đảm bảo tính nhất quán
-  router.post('/', async (req, res, next) => {
+  router.post('/', optionalAuth(), async (req, res, next) => {
     const client = await pool.connect();
     try {
+      // 1. Phân quyền Strict: Admin KHÔNG được tạo đơn
+      if (req.user) {
+        if (req.user.role === 'ADMIN') {
+          return res.status(403).json({
+            error: 'Quản trị viên không được phép tạo đơn đặt món. Nghiệp vụ này thuộc về nhân viên bồi bàn (WAITER)!',
+          });
+        }
+        if (req.user.role === 'KITCHEN' || req.user.role === 'CASHIER') {
+          return res.status(403).json({
+            error: `Tài khoản vai trò "${req.user.role}" không có quyền tạo đơn đặt món.`,
+          });
+        }
+      }
+
+      const waiterId = req.user && req.user.role === 'WAITER' ? req.user.id : null;
       const { table_id, items } = req.body;
 
       // Validate input
@@ -47,27 +64,38 @@ module.exports = function createOrdersRouter(pool) {
 
       await client.query('BEGIN');
 
-      // Kiểm tra bàn tồn tại
+      // 2. Ràng buộc: Kiểm tra bàn tồn tại
       const tableRes = await client.query('SELECT id, status FROM tables WHERE id = $1', [table_id]);
       if (tableRes.rowCount === 0) {
         await client.query('ROLLBACK');
         return res.status(404).json({ error: 'Không tìm thấy bàn' });
       }
 
-      // Lấy giá từ DB (KHÔNG tin giá từ client) và kiểm tra món còn phục vụ
+      // 3. Ràng buộc: 1 BÀN CHỈ CÓ TỐI ĐA 1 ĐƠN HOẠT ĐỘNG
+      const activeOrderRes = await client.query(
+        "SELECT id, status FROM orders WHERE table_id = $1 AND status IN ('PENDING', 'PREPARING', 'SERVED')",
+        [table_id]
+      );
+      if (activeOrderRes.rowCount > 0) {
+        await client.query('ROLLBACK');
+        return res.status(409).json({
+          error: `Bàn đang có đơn #${activeOrderRes.rows[0].id} (${activeOrderRes.rows[0].status}) chưa thanh toán. Vui lòng chọn "Gọi thêm món" vào đơn hiện tại!`,
+          active_order_id: activeOrderRes.rows[0].id,
+        });
+      }
+
+      // 4. Lấy giá từ DB (KHÔNG tin giá từ client) và kiểm tra món còn phục vụ
       const menuIds = items.map((i) => i.menu_item_id);
       const menuRes = await client.query(
         'SELECT id, name, price, is_available FROM menu_items WHERE id = ANY($1)',
         [menuIds]
       );
 
-      // Map menu items theo id
       const menuMap = new Map();
       for (const mi of menuRes.rows) {
         menuMap.set(mi.id, mi);
       }
 
-      // Kiểm tra tất cả món có tồn tại và còn phục vụ
       for (const item of items) {
         const mi = menuMap.get(item.menu_item_id);
         if (!mi) {
@@ -84,33 +112,39 @@ module.exports = function createOrdersRouter(pool) {
         }
       }
 
-      // Tính tổng tiền
+      // 5. Tính tổng tiền & chốt unit_price
       let totalAmount = 0;
       const orderItems = items.map((item) => {
         const mi = menuMap.get(item.menu_item_id);
-        const subtotal = parseFloat(mi.price) * item.quantity;
+        const unitPrice = parseFloat(mi.price);
+        const subtotal = unitPrice * item.quantity;
         totalAmount += subtotal;
-        return { ...item, subtotal };
+        return {
+          ...item,
+          unit_price: unitPrice,
+          subtotal,
+          item_notes: (item.note || item.item_notes || '').trim(),
+        };
       });
 
-      // Tạo đơn hàng
+      // 6. Tạo đơn hàng với waiter_id
       const orderRes = await client.query(
-        `INSERT INTO orders (table_id, status, total_amount)
-         VALUES ($1, 'PENDING', $2) RETURNING *`,
-        [table_id, totalAmount]
+        `INSERT INTO orders (table_id, status, total_amount, waiter_id)
+         VALUES ($1, 'PENDING', $2, $3) RETURNING *`,
+        [table_id, totalAmount, waiterId]
       );
       const order = orderRes.rows[0];
 
-      // Thêm chi tiết đơn hàng
+      // 7. Thêm chi tiết đơn hàng (lưu rõ unit_price và item_notes)
       for (const item of orderItems) {
         await client.query(
-          `INSERT INTO order_items (order_id, menu_item_id, quantity, subtotal)
-           VALUES ($1, $2, $3, $4)`,
-          [order.id, item.menu_item_id, item.quantity, item.subtotal]
+          `INSERT INTO order_items (order_id, menu_item_id, quantity, unit_price, subtotal, item_notes)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [order.id, item.menu_item_id, item.quantity, item.unit_price, item.subtotal, item.item_notes]
         );
       }
 
-      // Đặt bàn thành OCCUPIED
+      // 8. Đổi trạng thái bàn thành OCCUPIED
       await client.query(
         "UPDATE tables SET status = 'OCCUPIED' WHERE id = $1",
         [table_id]
@@ -119,19 +153,15 @@ module.exports = function createOrdersRouter(pool) {
       await client.query('COMMIT');
       ordersCreatedTotal.inc();
 
-      // Trả kết quả kèm chi tiết items
-      const result = await pool.query(
-        `SELECT oi.id, oi.menu_item_id, mi.name AS menu_item_name,
-                oi.quantity, oi.subtotal
-         FROM order_items oi
-         JOIN menu_items mi ON mi.id = oi.menu_item_id
-         WHERE oi.order_id = $1`,
-        [order.id]
-      );
-
       res.status(201).json({
         ...order,
-        items: result.rows,
+        items: orderItems.map((item) => {
+          const mi = menuMap.get(item.menu_item_id);
+          return {
+            ...item,
+            menu_item_name: mi.name,
+          };
+        }),
       });
     } catch (err) {
       await client.query('ROLLBACK').catch(() => {});
@@ -141,22 +171,126 @@ module.exports = function createOrdersRouter(pool) {
     }
   });
 
-  // GET /api/orders - Danh sách đơn (lọc theo status)
+  // POST /api/orders/:id/items - Gọi thêm món vào đơn đang mở của bàn
+  router.post('/:id/items', optionalAuth(), async (req, res, next) => {
+    const client = await pool.connect();
+    try {
+      if (req.user && req.user.role === 'ADMIN') {
+        return res.status(403).json({
+          error: 'Quản trị viên không được thao tác gọi thêm món ăn.',
+        });
+      }
+
+      const { id } = req.params;
+      const { items } = req.body;
+
+      if (!Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({ error: 'items phải là mảng không rỗng' });
+      }
+
+      await client.query('BEGIN');
+
+      // Kiểm tra đơn hàng có đang active không
+      const orderRes = await client.query(
+        "SELECT id, table_id, status, total_amount FROM orders WHERE id = $1 FOR UPDATE",
+        [parseInt(id, 10)]
+      );
+
+      if (orderRes.rowCount === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'Không tìm thấy đơn hàng' });
+      }
+
+      const order = orderRes.rows[0];
+      if (order.status === 'PAID' || order.status === 'CANCELLED') {
+        await client.query('ROLLBACK');
+        return res.status(409).json({
+          error: `Đơn #${order.id} đã ở trạng thái ${order.status}, không thể gọi thêm món!`,
+        });
+      }
+
+      // Lấy thông tin giá từ menu_items
+      const menuIds = items.map(i => i.menu_item_id);
+      const menuRes = await client.query(
+        'SELECT id, name, price, is_available FROM menu_items WHERE id = ANY($1)',
+        [menuIds]
+      );
+      const menuMap = new Map();
+      menuRes.rows.forEach(m => menuMap.set(m.id, m));
+
+      let addedTotal = 0;
+      const newItems = [];
+      for (const item of items) {
+        const mi = menuMap.get(item.menu_item_id);
+        if (!mi) {
+          await client.query('ROLLBACK');
+          return res.status(404).json({ error: `Không tìm thấy món ID ${item.menu_item_id}` });
+        }
+        if (!mi.is_available) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ error: `Món "${mi.name}" hiện không phục vụ` });
+        }
+
+        const unitPrice = parseFloat(mi.price);
+        const subtotal = unitPrice * item.quantity;
+        addedTotal += subtotal;
+
+        const insertRes = await client.query(
+          `INSERT INTO order_items (order_id, menu_item_id, quantity, unit_price, subtotal, item_notes)
+           VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+          [order.id, item.menu_item_id, item.quantity, unitPrice, subtotal, (item.note || item.item_notes || '').trim()]
+        );
+        newItems.push({
+          ...insertRes.rows[0],
+          menu_item_name: mi.name,
+        });
+      }
+
+      // Cập nhật tổng tiền đơn hàng và đưa trạng thái về PENDING nếu trước đó đã SERVED
+      const newStatus = order.status === 'SERVED' ? 'PENDING' : order.status;
+      const updatedTotal = parseFloat(order.total_amount) + addedTotal;
+
+      await client.query(
+        "UPDATE orders SET total_amount = $1, status = $2 WHERE id = $3",
+        [updatedTotal, newStatus, order.id]
+      );
+
+      await client.query('COMMIT');
+
+      res.status(201).json({
+        message: 'Đã gọi thêm món thành công',
+        order_id: order.id,
+        new_total_amount: updatedTotal,
+        status: newStatus,
+        added_items: newItems,
+      });
+    } catch (err) {
+      await client.query('ROLLBACK').catch(() => {});
+      next(err);
+    } finally {
+      client.release();
+    }
+  });
+
+  // GET /api/orders - Danh sách đơn hàng
   router.get('/', async (req, res, next) => {
     try {
       const { status } = req.query;
-      let query = `SELECT o.*, t.table_number
-                    FROM orders o
-                    JOIN tables t ON t.id = o.table_id`;
+      let query = `
+        SELECT o.id, o.table_id, t.table_number, o.status, o.total_amount,
+               o.payment_method, o.created_at,
+               u_waiter.username AS waiter_name,
+               u_cashier.username AS cashier_name
+        FROM orders o
+        JOIN tables t ON t.id = o.table_id
+        LEFT JOIN users u_waiter ON u_waiter.id = o.waiter_id
+        LEFT JOIN users u_cashier ON u_cashier.id = o.cashier_id
+      `;
       const params = [];
 
       if (status) {
-        const upper = status.toUpperCase();
-        if (!['PENDING', 'PREPARING', 'SERVED', 'PAID'].includes(upper)) {
-          return res.status(400).json({ error: 'status không hợp lệ' });
-        }
         query += ' WHERE o.status = $1';
-        params.push(upper);
+        params.push(status.toUpperCase());
       }
       query += ' ORDER BY o.created_at DESC';
 
@@ -167,14 +301,20 @@ module.exports = function createOrdersRouter(pool) {
     }
   });
 
-  // GET /api/orders/:id - Chi tiết đơn kèm danh sách món
+  // GET /api/orders/:id - Chi tiết 1 đơn hàng (kèm món)
   router.get('/:id', async (req, res, next) => {
     try {
       const { id } = req.params;
+
       const orderRes = await pool.query(
-        `SELECT o.*, t.table_number
+        `SELECT o.id, o.table_id, t.table_number, o.status, o.total_amount,
+                o.payment_method, o.created_at,
+                u_waiter.username AS waiter_name,
+                u_cashier.username AS cashier_name
          FROM orders o
          JOIN tables t ON t.id = o.table_id
+         LEFT JOIN users u_waiter ON u_waiter.id = o.waiter_id
+         LEFT JOIN users u_cashier ON u_cashier.id = o.cashier_id
          WHERE o.id = $1`,
         [parseInt(id, 10)]
       );
@@ -185,7 +325,7 @@ module.exports = function createOrdersRouter(pool) {
 
       const itemsRes = await pool.query(
         `SELECT oi.id, oi.menu_item_id, mi.name AS menu_item_name,
-                oi.quantity, oi.subtotal
+                oi.quantity, oi.unit_price, oi.subtotal, oi.item_notes
          FROM order_items oi
          JOIN menu_items mi ON mi.id = oi.menu_item_id
          WHERE oi.order_id = $1
@@ -203,21 +343,39 @@ module.exports = function createOrdersRouter(pool) {
   });
 
   // PATCH /api/orders/:id/status - Chuyển trạng thái đơn
-  // Luồng: PENDING → PREPARING → SERVED → PAID
-  // Sai luồng trả 409 Conflict
-  router.patch('/:id/status', async (req, res, next) => {
+  router.patch('/:id/status', optionalAuth(), async (req, res, next) => {
     const client = await pool.connect();
     try {
       const { id } = req.params;
-      const { status: newStatus } = req.body;
+      const { status: newStatus, payment_method } = req.body;
 
       if (!newStatus) {
         return res.status(400).json({ error: 'Thiếu trường status' });
       }
 
+      const targetStatus = newStatus.toUpperCase();
+
+      // Kiểm tra vai trò:
+      if (req.user) {
+        if (req.user.role === 'ADMIN') {
+          return res.status(403).json({
+            error: 'Quản trị viên không được phép can thiệp trực tiếp vào luồng nấu bếp hoặc thu tiền!',
+          });
+        }
+        if (targetStatus === 'PREPARING' || targetStatus === 'SERVED') {
+          if (req.user.role !== 'KITCHEN') {
+            return res.status(403).json({ error: 'Chỉ nhân viên Bếp (KITCHEN) mới được cập nhật nấu/phục vụ món!' });
+          }
+        }
+        if (targetStatus === 'PAID') {
+          if (req.user.role !== 'CASHIER') {
+            return res.status(403).json({ error: 'Chỉ nhân viên Thu ngân (CASHIER) mới được thực hiện thanh toán!' });
+          }
+        }
+      }
+
       await client.query('BEGIN');
 
-      // Lấy đơn hiện tại (lock row để tránh race condition)
       const orderRes = await client.query(
         'SELECT id, table_id, status FROM orders WHERE id = $1 FOR UPDATE',
         [parseInt(id, 10)]
@@ -229,46 +387,74 @@ module.exports = function createOrdersRouter(pool) {
       }
 
       const order = orderRes.rows[0];
-      const expectedNext = STATUS_FLOW[order.status];
 
-      // Kiểm tra luồng trạng thái
+      // Xử lý HỦY ĐƠN (CANCELLED)
+      if (targetStatus === 'CANCELLED') {
+        if (order.status === 'PAID') {
+          await client.query('ROLLBACK');
+          return res.status(409).json({ error: 'Đơn đã thanh toán, không thể hủy!' });
+        }
+        await client.query("UPDATE orders SET status = 'CANCELLED' WHERE id = $1", [order.id]);
+        await client.query("UPDATE tables SET status = 'AVAILABLE' WHERE id = $1", [order.table_id]);
+        await client.query('COMMIT');
+        return res.json({ message: 'Đã hủy đơn hàng thành công', id: order.id, status: 'CANCELLED' });
+      }
+
+      // Xử lý luồng PENDING -> PREPARING -> SERVED -> PAID
+      const expectedNext = STATUS_FLOW[order.status];
       if (!expectedNext) {
         await client.query('ROLLBACK');
         return res.status(409).json({
           error: `Đơn đã ở trạng thái cuối (${order.status}), không thể chuyển tiếp`,
         });
       }
-      if (newStatus.toUpperCase() !== expectedNext) {
+      if (targetStatus !== expectedNext) {
         await client.query('ROLLBACK');
         return res.status(409).json({
-          error: `Không thể chuyển từ ${order.status} sang ${newStatus}. Trạng thái tiếp theo phải là ${expectedNext}`,
+          error: `Không thể chuyển từ ${order.status} sang ${targetStatus}. Trạng thái tiếp theo phải là ${expectedNext}`,
         });
       }
 
-      // Cập nhật trạng thái đơn
-      const updated = await client.query(
-        'UPDATE orders SET status = $1 WHERE id = $2 RETURNING *',
-        [newStatus.toUpperCase(), parseInt(id, 10)]
-      );
-
-      // Khi thanh toán xong (PAID) → trả bàn về AVAILABLE
-      if (newStatus.toUpperCase() === 'PAID') {
-        // Kiểm tra xem bàn còn đơn chưa PAID nào không
-        const activeOrders = await client.query(
-          "SELECT COUNT(*) FROM orders WHERE table_id = $1 AND status != 'PAID'",
-          [order.table_id]
-        );
-        // Nếu không còn đơn active nào, trả bàn về AVAILABLE
-        if (parseInt(activeOrders.rows[0].count, 10) === 0) {
-          await client.query(
-            "UPDATE tables SET status = 'AVAILABLE' WHERE id = $1",
-            [order.table_id]
-          );
+      // Nếu chuyển sang PAID -> Bắt buộc kiểm tra phương thức thanh toán
+      let cashierId = null;
+      let payMethod = 'CASH';
+      if (targetStatus === 'PAID') {
+        cashierId = req.user && req.user.role === 'CASHIER' ? req.user.id : null;
+        payMethod = payment_method || 'CASH';
+        if (!['CASH', 'TRANSFER_QR', 'CARD'].includes(payMethod)) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ error: 'Phương thức thanh toán phải là CASH, TRANSFER_QR hoặc CARD' });
         }
       }
 
+      // Cập nhật trạng thái đơn
+      const sets = ['status = $1'];
+      const values = [targetStatus];
+      let idx = 2;
+
+      if (targetStatus === 'PAID') {
+        sets.push(`cashier_id = COALESCE($${idx++}::integer, cashier_id)`);
+        values.push(cashierId);
+        sets.push(`payment_method = $${idx++}`);
+        values.push(payMethod);
+      }
+
+      values.push(parseInt(id, 10));
+      const updated = await client.query(
+        `UPDATE orders SET ${sets.join(', ')} WHERE id = $${idx} RETURNING *`,
+        values
+      );
+
+      // Khi thanh toán xong (PAID) → giải phóng bàn về AVAILABLE
+      if (targetStatus === 'PAID') {
+        await client.query(
+          "UPDATE tables SET status = 'AVAILABLE' WHERE id = $1",
+          [order.table_id]
+        );
+      }
+
       await client.query('COMMIT');
-      if (newStatus.toUpperCase() === 'PAID') {
+      if (targetStatus === 'PAID') {
         ordersPaidTotal.inc();
       }
       res.json(updated.rows[0]);

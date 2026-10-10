@@ -780,3 +780,121 @@ tr:hover td {
   color: var(--primary);
   letter-spacing: -0.01em;
 }
+
+/* ============================================================
+   Menu Card Enhancements (Best Seller, Out of Stock, Thumbnails)
+   ============================================================ */
+
+/* Món tạm hết hàng */
+.menu-card.is-unavailable {
+  opacity: 0.65;
+  filter: grayscale(0.4);
+  cursor: not-allowed !important;
+}
+
+.menu-card.is-unavailable:hover {
+  transform: none !important;
+  box-shadow: var(--shadow-sm) !important;
+  border-color: var(--border) !important;
+}
+
+.menu-card-soldout-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  z-index: 1;
+}
+
+/* Huy hiệu Best Seller (Góc trên bên phải) */
+.badge-best-seller {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: linear-gradient(135deg, #ef4444 0%, #f97316 100%) !important;
+  color: #ffffff !important;
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 0.25rem 0.65rem;
+  border-radius: var(--radius-full);
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  z-index: 2;
+}
+
+.badge-best-seller::before {
+  display: none !important;
+}
+
+/* Huy hiệu Đã hết (Góc trên bên phải) */
+.badge-out-of-stock {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: rgba(220, 38, 38, 0.92) !important;
+  color: #ffffff !important;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.25rem 0.65rem;
+  border-radius: var(--radius-full);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  z-index: 2;
+}
+
+.badge-out-of-stock::before {
+  display: none !important;
+}
+
+/* Nút đặt món bị disabled khi hết hàng */
+.btn-disabled {
+  background: #cbd5e1 !important;
+  color: #64748b !important;
+  border-color: #cbd5e1 !important;
+  cursor: not-allowed !important;
+  box-shadow: none !important;
+  pointer-events: none;
+}
+
+/* Ảnh thumbnail nhỏ cho bảng Quản lý Thực đơn trong Admin */
+.table-menu-thumb {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  border: 1px solid var(--border);
+  background: #f1f5f9;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+/* Huy hiệu Best Seller nhỏ gọn trong bảng Admin */
+.badge-best-seller-mini {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.15rem 0.45rem;
+  border-radius: var(--radius-full);
+  margin-left: 0.4rem;
+  vertical-align: middle;
+}

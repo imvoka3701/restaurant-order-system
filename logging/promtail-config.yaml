@@ -1,0 +1,42 @@
+# ============================================================
+# promtail-config.yaml - Cấu hình Promtail thu thập log Docker
+# Sử dụng docker_sd_configs để tự phát hiện container
+# ============================================================
+
+server:
+  http_listen_port: 9080
+
+# File positions: lưu vị trí đọc log, tránh đọc lại khi restart
+positions:
+  filename: /positions/positions.yaml
+
+# Gửi log đến Loki
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  # Tự động phát hiện container Docker qua docker.sock
+  # LƯU Ý: Promtail chạy root vì cần đọc docker.sock — ngoại lệ hardening đã biết
+  - job_name: docker
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 5s
+        # Chỉ thu thập log từ container thuộc project restaurant-order-system
+        filters:
+          - name: label
+            values:
+              - "com.docker.compose.project=restaurant-order-system"
+
+    relabel_configs:
+      # Label container: tên container (bỏ dấu / ở đầu)
+      - source_labels: ["__meta_docker_container_name"]
+        regex: "/?(.*)"
+        target_label: "container"
+
+      # Label service: tên service trong docker-compose
+      - source_labels: ["__meta_docker_container_label_com_docker_compose_service"]
+        target_label: "service"
+
+      # Label stream: stdout hoặc stderr
+      - source_labels: ["__meta_docker_container_log_stream"]
+        target_label: "stream"

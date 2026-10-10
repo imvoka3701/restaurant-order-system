@@ -45,6 +45,7 @@ INSERT INTO menu_items (name, category, price, is_available) VALUES
 -- Hash bcrypt cost=10, CHỈ dùng cho môi trường phát triển / demo
 -- $2b$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy = "password123"
 INSERT INTO users (username, password_hash, role) VALUES
-    ('admin',   '$2b$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'ADMIN'),
-    ('waiter1', '$2b$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'WAITER'),
-    ('kitchen1','$2b$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'KITCHEN');
+    ('admin',   '$2a$10$otIXAE.QNwrGYDHCgSZn.efqWrDe6r0IMemfD2919MseCqN1KhWYG', 'ADMIN'),
+    ('waiter1', '$2a$10$otIXAE.QNwrGYDHCgSZn.efqWrDe6r0IMemfD2919MseCqN1KhWYG', 'WAITER'),
+    ('kitchen1','$2a$10$otIXAE.QNwrGYDHCgSZn.efqWrDe6r0IMemfD2919MseCqN1KhWYG', 'KITCHEN'),
+    ('cashier1','$2a$10$otIXAE.QNwrGYDHCgSZn.efqWrDe6r0IMemfD2919MseCqN1KhWYG', 'CASHIER');

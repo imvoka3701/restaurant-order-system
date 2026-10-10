@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Đăng Nhập - Hệ Thống Nhà Hàng Hương Việt</title>
+  <link rel="stylesheet" href="/style.css">
+  <style>
+    .login-container {
+      min-height: calc(100vh - 70px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1rem;
+    }
+    .login-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      box-shadow: var(--shadow-card);
+      width: 100%;
+      max-width: 440px;
+      padding: 2.25rem 2rem;
+      position: relative;
+      overflow: hidden;
+    }
+    .login-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 5px;
+      background: var(--primary-gradient);
+    }
+    .login-header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    .login-header h1 {
+      font-size: 1.6rem;
+      font-weight: 800;
+      color: var(--text-main);
+      margin-bottom: 0.35rem;
+    }
+    .login-header p {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+    .form-group {
+      margin-bottom: 1.25rem;
+    }
+    .form-group label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-main);
+      margin-bottom: 0.4rem;
+    }
+    .form-input {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-md);
+      font-size: 0.95rem;
+      transition: all 0.2s ease;
+      background: var(--surface-alt);
+    }
+    .form-input:focus {
+      outline: none;
+      border-color: var(--primary);
+      background: #fff;
+      box-shadow: 0 0 0 3px var(--primary-glow);
+    }
+    .btn-login {
+      width: 100%;
+      padding: 0.85rem;
+      font-size: 1rem;
+      font-weight: 700;
+      border-radius: var(--radius-md);
+      margin-top: 0.5rem;
+    }
+    .demo-accounts {
+      margin-top: 2rem;
+      padding-top: 1.5rem;
+      border-top: 1px dashed var(--border);
+    }
+    .demo-accounts h3 {
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-sub);
+      margin-bottom: 0.75rem;
+      text-align: center;
+    }
+    .demo-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.5rem;
+    }
+    .demo-item {
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 0.6rem;
+      font-size: 0.78rem;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .demo-item:hover {
+      border-color: var(--primary);
+      background: var(--primary-light);
+      transform: translateY(-1px);
+    }
+    .demo-item strong {
+      display: block;
+      color: var(--text-main);
+      font-size: 0.82rem;
+    }
+    .demo-item span {
+      color: var(--text-muted);
+    }
+    .error-alert {
+      display: none;
+      background: var(--danger-light);
+      border: 1px solid var(--danger-border);
+      color: var(--danger);
+      padding: 0.75rem 1rem;
+      border-radius: var(--radius-md);
+      font-size: 0.88rem;
+      margin-bottom: 1.25rem;
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <span class="brand">🍽️ Nhà Hàng Hương Việt</span>
+    <a href="/booking.html" style="color: #f97316; font-weight: 700;">📅 Đặt Bàn Online</a>
+    <a href="/index.html">Đặt món</a>
+    <div style="margin-left: auto;">
+      <a href="/login.html" class="active" style="color: #f97316; font-weight: 600;">Đăng nhập</a>
+    </div>
+  </nav>
+
+  <div class="login-container">
+    <div class="login-card">
+      <div class="login-header">
+        <h1>Đăng Nhập Hệ Thống</h1>
+        <p>Quản lý đặt bàn, nhà bếp, thu ngân & báo cáo</p>
+      </div>
+
+      <div id="errorAlert" class="error-alert"></div>
+
+      <form id="loginForm">
+        <div class="form-group">
+          <label for="username">Tên đăng nhập</label>
+          <input type="text" id="username" class="form-input" placeholder="Nhập username (ví dụ: admin)" required autofocus autocomplete="username">
+        </div>
+
+        <div class="form-group">
+          <label for="password">Mật khẩu</label>
+          <input type="password" id="password" class="form-input" placeholder="Nhập mật khẩu" required autocomplete="current-password">
+        </div>
+
+        <button type="submit" id="submitBtn" class="btn btn-primary btn-login">
+          Đăng Nhập
+        </button>
+      </form>
+
+      <div style="margin-top: 1.5rem; text-align: center; padding-top: 1.25rem; border-top: 1px dashed var(--border);">
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">Bạn là thực khách muốn đặt bàn trước?</p>
+        <a href="/booking.html" class="btn btn-sm btn-secondary" style="display: inline-block; width: 100%; padding: 0.6rem; text-decoration: none; color: #ea580c; font-weight: 700; box-sizing: border-box;">
+          📅 Đi Đến Trang Đặt Bàn Trực Tuyến
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <script src="/auth-guard.js"></script>
+  <script src="/login.js"></script>
+</body>
+</html>

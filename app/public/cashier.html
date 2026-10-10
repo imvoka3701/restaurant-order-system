@@ -22,6 +22,24 @@
     <div id="served-orders" class="grid"></div>
   </div>
 
+  <!-- MODAL XEM CHI TIẾT & IN HÓA ĐƠN (100% CSP COMPLIANT) -->
+  <div id="receiptModal" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.65); backdrop-filter:blur(4px); z-index:1000; align-items:center; justify-content:center; padding:1rem;">
+    <div style="background:#fff; border-radius:16px; max-width:480px; width:100%; box-shadow:0 20px 25px -5px rgba(0,0,0,0.25); overflow:hidden;">
+      <div style="padding:1.25rem 1.5rem; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center; background:#fafbfc;">
+        <h3 style="margin:0; font-size:1.15rem; font-weight:700;">🧾 Phiếu Tạm Tính / Hóa Đơn</h3>
+        <button type="button" id="closeReceiptBtn" style="background:transparent; border:none; font-size:1.5rem; cursor:pointer; color:#64748b;">&times;</button>
+      </div>
+      <div id="receiptContent" style="padding:1.5rem; max-height:65vh; overflow-y:auto;">
+        <!-- Nội dung phiếu in hóa đơn sẽ render động -->
+      </div>
+      <div style="padding:1rem 1.5rem; border-top:1px solid #e2e8f0; display:flex; justify-content:flex-end; gap:0.75rem; background:#fafbfc;">
+        <button type="button" class="btn btn-secondary btn-sm" id="btnPrintReceipt">🖨️ In Phiếu</button>
+        <button type="button" class="btn btn-primary btn-sm" id="closeReceiptBtn2">Đóng</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/auth-guard.js"></script>
   <script src="/cashier.js"></script>
 </body>
 </html>

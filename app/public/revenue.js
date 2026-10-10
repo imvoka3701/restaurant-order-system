@@ -51,7 +51,7 @@ async function loadRevenue() {
     cardOrders.className = 'kpi-card';
     cardOrders.innerHTML = `<div class="kpi-label">🧾 Đơn đã thanh toán</div><div class="kpi-value">${data.summary.total_orders} <span style="font-size:1rem;font-weight:600;color:var(--text-muted)">đơn</span></div>`;
 
-    const avgOrder = data.summary.total_orders > 0 ? (parseFloat(data.summary.total_revenue) / data.summary.total_orders) : 0;
+    const avgOrder = data.summary.total_orders > 0 ? Math.round(parseFloat(data.summary.total_revenue) / data.summary.total_orders) : 0;
     const cardAvg = document.createElement('div');
     cardAvg.className = 'kpi-card';
     cardAvg.innerHTML = `<div class="kpi-label">📊 Trung bình / đơn</div><div class="kpi-value" style="color:var(--accent)">${formatVND(avgOrder)}</div>`;
@@ -123,6 +123,10 @@ async function loadRevenue() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  const user = Auth.requireAuth(['ADMIN']);
+  if (!user) return;
+  Auth.initNav('revenue');
+
   // Set ngày mặc định: hôm nay
   const today = new Date().toISOString().split('T')[0];
   const dateFrom = document.getElementById('date-from');

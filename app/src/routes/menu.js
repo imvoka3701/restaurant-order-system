@@ -13,11 +13,32 @@ const VALID_CATEGORIES = ['APPETIZER', 'MAIN', 'DESSERT', 'BEVERAGE'];
 module.exports = function createMenuRouter(pool) {
   const router = Router();
 
-  // GET /api/menu - Lấy thực đơn (có thể lọc theo danh mục)
+  // GET /api/menu - Lấy thực đơn (có thể lọc theo danh mục) kèm ảnh và cờ best seller
   router.get('/', async (req, res, next) => {
     try {
       const { category } = req.query;
-      let query = 'SELECT id, name, category, price, is_available FROM menu_items';
+      let query = `
+        WITH top_sellers AS (
+          SELECT oi.menu_item_id
+          FROM order_items oi
+          JOIN orders o ON o.id = oi.order_id
+          WHERE o.status = 'PAID'
+          GROUP BY oi.menu_item_id
+          HAVING SUM(oi.quantity) > 0
+          ORDER BY SUM(oi.quantity) DESC
+          LIMIT 3
+        )
+        SELECT 
+          m.id, 
+          m.name, 
+          m.category, 
+          m.price, 
+          m.is_available,
+          m.image_url,
+          CASE WHEN ts.menu_item_id IS NOT NULL THEN true ELSE false END AS is_best_seller
+        FROM menu_items m
+        LEFT JOIN top_sellers ts ON m.id = ts.menu_item_id
+      `;
       const params = [];
 
       if (category) {
@@ -27,10 +48,10 @@ module.exports = function createMenuRouter(pool) {
             error: `category phải là một trong: ${VALID_CATEGORIES.join(', ')}`,
           });
         }
-        query += ' WHERE category = $1';
+        query += ' WHERE m.category = $1';
         params.push(upper);
       }
-      query += ' ORDER BY category, name';
+      query += ' ORDER BY m.category, m.name';
 
       const { rows } = await pool.query(query, params);
       res.json(rows);
@@ -42,7 +63,7 @@ module.exports = function createMenuRouter(pool) {
   // POST /api/menu - Thêm món mới
   router.post('/', async (req, res, next) => {
     try {
-      const { name, category, price, is_available } = req.body;
+      const { name, category, price, is_available, image_url } = req.body;
 
       // Validate
       if (!name || typeof name !== 'string' || name.trim().length === 0) {
@@ -58,9 +79,9 @@ module.exports = function createMenuRouter(pool) {
       }
 
       const { rows } = await pool.query(
-        `INSERT INTO menu_items (name, category, price, is_available)
-         VALUES ($1, $2, $3, $4) RETURNING *`,
-        [name.trim(), category.toUpperCase(), price, is_available !== false]
+        `INSERT INTO menu_items (name, category, price, is_available, image_url)
+         VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+        [name.trim(), category.toUpperCase(), price, is_available !== false, image_url ? image_url.trim() : null]
       );
       res.status(201).json(rows[0]);
     } catch (err) {
@@ -68,12 +89,12 @@ module.exports = function createMenuRouter(pool) {
     }
   });
 
-  // PATCH /api/menu/:id - Cập nhật món (giá, tình trạng phục vụ)
+  // PATCH /api/menu/:id - Cập nhật món (giá, tình trạng phục vụ, hình ảnh)
   // Ẩn món thay vì xóa: set is_available = false
   router.patch('/:id', async (req, res, next) => {
     try {
       const { id } = req.params;
-      const { name, price, is_available, category } = req.body;
+      const { name, price, is_available, category, image_url } = req.body;
 
       const sets = [];
       const values = [];
@@ -106,6 +127,10 @@ module.exports = function createMenuRouter(pool) {
         sets.push(`is_available = $${idx++}`);
         values.push(Boolean(is_available));
       }
+      if (image_url !== undefined) {
+        sets.push(`image_url = $${idx++}`);
+        values.push(image_url ? image_url.trim() : null);
+      }
 
       if (sets.length === 0) {
         return res.status(400).json({ error: 'Không có trường nào để cập nhật' });
@@ -121,6 +146,24 @@ module.exports = function createMenuRouter(pool) {
         return res.status(404).json({ error: 'Không tìm thấy món' });
       }
       res.json(rows[0]);
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // DELETE /api/menu/:id - Ngừng kinh doanh món (Soft delete: set is_available = false)
+  router.delete('/:id', async (req, res, next) => {
+    try {
+      const { id } = req.params;
+      const { rows, rowCount } = await pool.query(
+        'UPDATE menu_items SET is_available = false WHERE id = $1 RETURNING *',
+        [parseInt(id, 10)]
+      );
+
+      if (rowCount === 0) {
+        return res.status(404).json({ error: 'Không tìm thấy món' });
+      }
+      res.json({ message: 'Đã ngừng kinh doanh món', item: rows[0] });
     } catch (err) {
       next(err);
     }

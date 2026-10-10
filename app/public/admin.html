@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard Quản Trị - Nhà Hàng Hương Việt</title>
+  <link rel="stylesheet" href="/style.css">
+  <style>
+    .admin-container {
+      max-width: 1200px;
+      margin: 1.75rem auto 3rem;
+      padding: 0 1.5rem;
+    }
+    .admin-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    .admin-title h1 {
+      font-size: 1.85rem;
+      font-weight: 800;
+      color: var(--text-main);
+      letter-spacing: -0.02em;
+    }
+    .admin-title p {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      margin-top: 0.2rem;
+    }
+    
+    /* Navigation Tabs */
+    .admin-tabs {
+      display: flex;
+      gap: 0.5rem;
+      border-bottom: 2px solid var(--border);
+      margin-bottom: 2rem;
+      background: var(--surface);
+      padding: 0.65rem 0.75rem 0;
+      border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    }
+    .tab-btn {
+      padding: 0.85rem 1.4rem;
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      background: transparent;
+      border: none;
+      border-bottom: 3px solid transparent;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: all 0.2s ease;
+      border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+    }
+    .tab-btn:hover {
+      color: var(--primary);
+      background: var(--surface-alt);
+    }
+    .tab-btn.active {
+      color: var(--primary);
+      border-bottom-color: var(--primary);
+      background: var(--primary-light);
+    }
+    .tab-panel {
+      display: none;
+    }
+    .tab-panel.active {
+      display: block;
+      animation: fadeIn 0.2s ease-out;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    /* Data Card & Toolbar */
+    .data-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      box-shadow: var(--shadow-card);
+      overflow: hidden;
+      margin-bottom: 1.5rem;
+    }
+    .card-toolbar {
+      padding: 1.25rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+      background: #fafbfc;
+    }
+    .search-box {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+    .form-control {
+      padding: 0.55rem 0.9rem;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-md);
+      font-size: 0.9rem;
+      background: #fff;
+      transition: all 0.15s ease;
+    }
+    .form-control:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px var(--primary-glow);
+    }
+
+    /* Tables */
+    .custom-table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+    }
+    .custom-table th {
+      background: var(--surface-alt);
+      padding: 0.9rem 1.25rem;
+      font-size: 0.82rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--border);
+    }
+    .custom-table td {
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid var(--border-light);
+      font-size: 0.92rem;
+      vertical-align: middle;
+    }
+    .custom-table tr:hover td {
+      background: #f8fafc;
+    }
+    
+    /* Badges */
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.25rem 0.65rem;
+      border-radius: var(--radius-full);
+      font-size: 0.78rem;
+      font-weight: 600;
+    }
+    .status-badge.available {
+      background: var(--success-light);
+      color: var(--success);
+      border: 1px solid var(--success-border);
+    }
+    .status-badge.unavailable {
+      background: var(--danger-light);
+      color: var(--danger);
+      border: 1px solid var(--danger-border);
+    }
+    .cat-badge {
+      padding: 0.2rem 0.55rem;
+      border-radius: var(--radius-sm);
+      font-size: 0.78rem;
+      font-weight: 600;
+      background: var(--surface-alt);
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+    }
+    .role-badge {
+      padding: 0.25rem 0.65rem;
+      border-radius: var(--radius-sm);
+      font-size: 0.78rem;
+      font-weight: 700;
+    }
+    .role-admin { background: #fee2e2; color: #b91c1c; }
+    .role-waiter { background: #dcfce7; color: #15803d; }
+    .role-kitchen { background: #e0f2fe; color: #0369a1; }
+    .role-cashier { background: #f3e8ff; color: #7e22ce; }
+
+    /* KPI Grid */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 1.25rem;
+      margin-bottom: 1.75rem;
+    }
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 1.35rem 1.5rem;
+      box-shadow: var(--shadow-sm);
+      position: relative;
+      overflow: hidden;
+    }
+    .stat-card::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 4px;
+      height: 100%;
+      background: var(--primary);
+    }
+    .stat-card.accent::after { background: var(--accent); }
+    .stat-card.success::after { background: var(--success); }
+    .stat-label {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 0.4rem;
+    }
+    .stat-val {
+      font-size: 1.85rem;
+      font-weight: 800;
+      color: var(--primary);
+    }
+
+    /* Modal */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.65);
+      backdrop-filter: blur(4px);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+    .modal-overlay.active {
+      display: flex;
+    }
+    .modal-content {
+      background: var(--surface);
+      border-radius: var(--radius-xl);
+      max-width: 480px;
+      width: 100%;
+      box-shadow: 0 20px 25px -5px rgba(0,0,0,0.25);
+      overflow: hidden;
+    }
+    .modal-header {
+      padding: 1.25rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .modal-header h3 { font-size: 1.15rem; font-weight: 700; }
+    .modal-close-btn {
+      background: transparent;
+      border: none;
+      font-size: 1.5rem;
+      cursor: pointer;
+      color: var(--text-muted);
+    }
+    .modal-body { padding: 1.5rem; }
+    .modal-footer {
+      padding: 1rem 1.5rem;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.75rem;
+      background: #fafbfc;
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <!-- Rendered strictly by auth-guard.js -->
+  </nav>
+
+  <div class="admin-container">
+    <div class="admin-header">
+      <div class="admin-title">
+        <h1>Dashboard Quản Trị Hệ Thống</h1>
+        <p>Trung tâm giám sát báo cáo doanh thu, quản trị thực đơn và tài khoản nhân sự</p>
+      </div>
+      <div id="liveTimeBadge" style="font-weight: 600; color: var(--text-muted); font-size: 0.9rem;"></div>
+    </div>
+
+    <!-- Tab navigation: 100% CSP compliant, no inline onclick -->
+    <div class="admin-tabs" id="adminTabsNav">
+      <button class="tab-btn active" data-tab="revenueTab">
+        📈 Báo Cáo Doanh Thu & KPIs
+      </button>
+      <button class="tab-btn" data-tab="menuTab">
+        🍽️ Quản Lý Thực Đơn
+      </button>
+      <button class="tab-btn" data-tab="tableTab">
+        🪑 Quản Lý Bàn Ăn
+      </button>
+      <button class="tab-btn" data-tab="staffTab">
+        👥 Quản Trị Tài Khoản
+      </button>
+      <button class="tab-btn" data-tab="reservationTab">
+        📅 Sổ Đặt Bàn
+      </button>
+    </div>
+
+    <!-- TAB 1: BÁO CÁO DOANH THU & KPIS (Mặc định hiển thị ngay) -->
+    <div id="revenueTab" class="tab-panel active">
+      <div class="card-toolbar" style="margin-bottom: 1.5rem; border-radius: var(--radius-lg); background: var(--surface); border: 1px solid var(--border);">
+        <form id="revFilterForm" style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
+          <label style="font-weight: 600; font-size: 0.9rem;">Từ ngày:</label>
+          <input type="date" id="revFrom" class="form-control" style="width: auto;">
+          <label style="font-weight: 600; font-size: 0.9rem;">Đến ngày:</label>
+          <input type="date" id="revTo" class="form-control" style="width: auto;">
+          <button type="submit" class="btn btn-primary btn-sm" id="btnFilterRev">
+            🔍 Lọc Số Liệu
+          </button>
+          <button type="button" class="btn btn-secondary btn-sm" id="btnTodayRev">
+            Hôm Nay
+          </button>
+        </form>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">Tổng Doanh Thu Đã Thu</div>
+          <div class="stat-val" id="statRevenue">0 ₫</div>
+        </div>
+        <div class="stat-card accent">
+          <div class="stat-label">Tổng Đơn Hàng Hoàn Tất</div>
+          <div class="stat-val" id="statOrders" style="color: var(--accent);">0</div>
+        </div>
+        <div class="stat-card success">
+          <div class="stat-label">Giá Trị Trung Bình / Đơn</div>
+          <div class="stat-val" id="statAvg" style="color: var(--success);">0 ₫</div>
+        </div>
+      </div>
+
+      <div class="data-card">
+        <div class="card-toolbar">
+          <strong style="color: var(--text-main); font-size: 1.05rem;">🏆 Top 10 Món Ăn Bán Chạy Nhất</strong>
+        </div>
+        <div style="overflow-x: auto;">
+          <table class="custom-table">
+            <thead>
+              <tr>
+                <th>Tên Món Ăn</th>
+                <th>Danh Mục</th>
+                <th style="text-align: center;">Số Lượng Đã Bán</th>
+                <th style="text-align: right;">Doanh Thu Đóng Góp</th>
+              </tr>
+            </thead>
+            <tbody id="topItemsBody">
+              <tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 2rem;">Đang tải số liệu doanh thu...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 2: QUẢN LÝ THỰC ĐƠN (MENU MANAGEMENT) -->
+    <div id="menuTab" class="tab-panel">
+      <div class="data-card">
+        <div class="card-toolbar">
+          <div class="search-box">
+            <input type="text" id="menuSearch" class="form-control" placeholder="🔍 Tìm tên món ăn...">
+            <select id="categoryFilter" class="form-control">
+              <option value="">Tất cả danh mục</option>
+              <option value="APPETIZER">Khai vị (APPETIZER)</option>
+              <option value="MAIN">Món chính (MAIN)</option>
+              <option value="DESSERT">Tráng miệng (DESSERT)</option>
+              <option value="BEVERAGE">Đồ uống (BEVERAGE)</option>
+            </select>
+          </div>
+          <button class="btn btn-primary btn-sm" id="btnOpenAddMenu">
+            + Thêm Món Mới
+          </button>
+        </div>
+
+        <div style="overflow-x: auto;">
+          <table class="custom-table" id="menuTable">
+            <thead>
+              <tr>
+                <th style="width: 50px;">ID</th>
+                <th style="width: 70px;">Hình Ảnh</th>
+                <th>Tên Món Ăn</th>
+                <th>Danh Mục</th>
+                <th>Đơn Giá</th>
+                <th>Tình Trạng</th>
+                <th style="text-align: right;">Thao Tác</th>
+              </tr>
+            </thead>
+            <tbody id="menuTableBody">
+              <tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 2rem;">Đang tải danh sách món ăn...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: QUẢN LÝ BÀN ĂN (TABLES MANAGEMENT) -->
+    <div id="tableTab" class="tab-panel">
+      <!-- Thống kê nhanh bàn ăn -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">Tổng Số Bàn</div>
+          <div class="stat-val" id="statTotalTables">0</div>
+        </div>
+        <div class="stat-card success">
+          <div class="stat-label">Bàn Trống (Sẵn sàng)</div>
+          <div class="stat-val" id="statAvailableTables" style="color: var(--success);">0</div>
+        </div>
+        <div class="stat-card accent">
+          <div class="stat-label">Bàn Đang Có Khách</div>
+          <div class="stat-val" id="statOccupiedTables" style="color: var(--danger);">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Bàn Đặt Trước</div>
+          <div class="stat-val" id="statReservedTables" style="color: var(--accent);">0</div>
+        </div>
+      </div>
+
+      <!-- Danh sách bàn ăn & Nút thêm bàn -->
+      <div class="data-card">
+        <div class="card-toolbar">
+          <strong style="color: var(--text-main); font-size: 1.05rem;">🪑 Danh Sách Bàn Ăn Nhà Hàng</strong>
+          <div style="display: flex; gap: 0.5rem;">
+            <button class="btn btn-secondary btn-sm" id="btnRefreshTables">Làm mới</button>
+            <button class="btn btn-primary btn-sm" id="btnOpenAddTable">+ Thêm Bàn Mới</button>
+          </div>
+        </div>
+        <div style="overflow-x: auto;">
+          <table class="custom-table" id="tablesTable">
+            <thead>
+              <tr>
+                <th style="width: 60px;">ID</th>
+                <th>Số Bàn</th>
+                <th>Sức Chứa (Chỗ ngồi)</th>
+                <th>Trạng Thái</th>
+                <th>Đơn Đang Phục Vụ</th>
+                <th style="text-align: right;">Thao Tác</th>
+              </tr>
+            </thead>
+            <tbody id="tablesTableBody">
+              <tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 2rem;">Đang tải danh sách bàn ăn...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 4: QUẢN TRỊ TÀI KHOẢN (STAFF MANAGEMENT) -->
+    <div id="staffTab" class="tab-panel">
+      <!-- Form Tạo Nhân Viên Mới -->
+      <div class="data-card" style="padding: 1.5rem; margin-bottom: 2rem;">
+        <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 1rem; color: var(--text-main);">
+          ➕ Thêm Tài Khoản Nhân Viên Mới
+        </h3>
+        <form id="createStaffForm">
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+            <div>
+              <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem;">Tên đăng nhập *</label>
+              <input type="text" id="newUsername" class="form-control" style="width: 100%;" placeholder="Ví dụ: waiter2" required autocomplete="off">
+            </div>
+            <div>
+              <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem;">Mật khẩu * (Tối thiểu 6 ký tự)</label>
+              <input type="password" id="newPassword" class="form-control" style="width: 100%;" placeholder="Mật khẩu" required minlength="6" autocomplete="new-password">
+            </div>
+            <div>
+              <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem;">Vai trò *</label>
+              <select id="newRole" class="form-control" style="width: 100%;" required>
+                <option value="WAITER">Bồi bàn (WAITER)</option>
+                <option value="KITCHEN">Đầu bếp (KITCHEN)</option>
+                <option value="CASHIER">Thu ngân (CASHIER)</option>
+                <option value="ADMIN">Quản trị viên (ADMIN)</option>
+              </select>
+            </div>
+            <div style="display: flex; align-items: flex-end;">
+              <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.65rem;" id="btnCreateStaff">
+                Tạo Tài Khoản
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+
+      <!-- Danh Sách Tài Khoản Nhân Viên -->
+      <div class="data-card">
+        <div class="card-toolbar">
+          <strong style="color: var(--text-main); font-size: 1.05rem;">👥 Danh Sách Tài Khoản Trong Hệ Thống</strong>
+          <button class="btn btn-secondary btn-sm" id="btnRefreshStaff">Làm mới</button>
+        </div>
+        <div style="overflow-x: auto;">
+          <table class="custom-table">
+            <thead>
+              <tr>
+                <th style="width: 50px;">ID</th>
+                <th>Tên Đăng Nhập</th>
+                <th>Vai Trò (Role)</th>
+                <th>Trạng Thái</th>
+                <th>Ngày Tạo Tài Khoản</th>
+                <th style="text-align: right;">Thao Tác</th>
+              </tr>
+            </thead>
+            <tbody id="staffTableBody">
+              <tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 2rem;">Đang tải danh sách nhân viên...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 5: SỔ ĐẶT BÀN (RESERVATION MANAGEMENT) -->
+    <div id="reservationTab" class="tab-panel">
+      <!-- Thẻ Thống kê nhanh Sổ Đặt Bàn -->
+      <div class="stats-grid" style="margin-bottom: 1.5rem;">
+        <div class="stat-card">
+          <div class="stat-label">Tổng Phiếu Đặt Hôm Nay</div>
+          <div class="stat-val" id="statTodayRes">0</div>
+        </div>
+        <div class="stat-card warning">
+          <div class="stat-label">Đang Giữ Chỗ (Chờ Đến)</div>
+          <div class="stat-val" id="statActiveRes" style="color: #b45309;">0</div>
+        </div>
+        <div class="stat-card success">
+          <div class="stat-label">Đã Nhận Bàn (Check-in)</div>
+          <div class="stat-val" id="statCheckedInRes" style="color: var(--success);">0</div>
+        </div>
+        <div class="stat-card accent">
+          <div class="stat-label">Tổng Khách Dự Kiến</div>
+          <div class="stat-val" id="statGuestCount" style="color: var(--accent);">0</div>
+        </div>
+      </div>
+
+      <!-- Sổ Danh Sách Đặt Bàn -->
+      <div class="data-card">
+        <div class="card-toolbar">
+          <div class="search-box">
+            <input type="text" id="resSearchInput" class="form-control" placeholder="🔍 Tìm theo Tên, SĐT, Bàn..." style="min-width: 250px;">
+            <select id="resStatusFilter" class="form-control">
+              <option value="ACTIVE">Đang giữ chỗ (ACTIVE)</option>
+              <option value="CHECKED_IN">Đã nhận bàn (CHECKED_IN)</option>
+              <option value="CANCELLED">Đã hủy (CANCELLED)</option>
+              <option value="">Tất cả trạng thái</option>
+            </select>
+          </div>
+          <div style="display: flex; gap: 0.75rem;">
+            <button class="btn btn-primary btn-sm" id="btnOpenAddReservation">
+              ➕ Nhận Đặt Bàn Mới
+            </button>
+            <button class="btn btn-secondary btn-sm" id="btnRefreshReservations">
+              Làm mới
+            </button>
+          </div>
+        </div>
+        <div style="overflow-x: auto;">
+          <table class="custom-table">
+            <thead>
+              <tr>
+                <th style="width: 50px;">Mã</th>
+                <th>Khách Hàng</th>
+                <th>Số Điện Thoại</th>
+                <th>Bàn & Sức Chứa</th>
+                <th>Số Khách</th>
+                <th>Thời Gian Hẹn</th>
+                <th>Ghi Chú Đặc Biệt</th>
+                <th>Trạng Thái</th>
+                <th style="text-align: right;">Thao Tác</th>
+              </tr>
+            </thead>
+            <tbody id="reservationsTableBody">
+              <tr><td colspan="9" style="text-align: center; color: var(--text-muted); padding: 2rem;">Đang tải danh sách đặt bàn...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL THÊM / SỬA MÓN (100% CSP COMPLIANT) -->
+  <div id="menuModal" class="modal-overlay">
+    <div class="modal-content" style="max-width: 520px;">
+      <div class="modal-header">
+        <h3 id="modalTitle">Thêm Món Mới</h3>
+        <button type="button" class="modal-close-btn" id="modalCloseX">&times;</button>
+      </div>
+      <form id="menuForm">
+        <div class="modal-body">
+          <input type="hidden" id="menuId">
+          <input type="hidden" id="menuImageUrl">
+
+          <div class="form-group" style="margin-bottom: 1.25rem;">
+            <label style="display:block; font-weight:600; font-size:0.85rem; margin-bottom:0.4rem;">Tên món ăn *</label>
+            <input type="text" id="menuName" class="form-control" style="width: 100%;" placeholder="Ví dụ: Bún chả nem cua bể" required>
+          </div>
+          <div class="form-group" style="margin-bottom: 1.25rem;">
+            <label style="display:block; font-weight:600; font-size:0.85rem; margin-bottom:0.4rem;">Danh mục món *</label>
+            <select id="menuCategory" class="form-control" style="width: 100%;" required>
+              <option value="APPETIZER">Khai vị (APPETIZER)</option>
+              <option value="MAIN">Món chính (MAIN)</option>
+              <option value="DESSERT">Tráng miệng (DESSERT)</option>
+              <option value="BEVERAGE">Đồ uống (BEVERAGE)</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom: 1.25rem;">
+            <label style="display:block; font-weight:600; font-size:0.85rem; margin-bottom:0.4rem;">Đơn giá (VNĐ) *</label>
+            <input type="number" id="menuPrice" class="form-control" style="width: 100%;" placeholder="Ví dụ: 65000" min="0" step="1000" required>
+          </div>
+
+          <!-- Tải ảnh món ăn -->
+          <div class="form-group" style="margin-bottom: 1.25rem;">
+            <label style="display:block; font-weight:600; font-size:0.85rem; margin-bottom:0.4rem;">Hình ảnh món ăn</label>
+            <div style="display: flex; gap: 1rem; align-items: center;">
+              <div id="imagePreviewContainer" style="width: 80px; height: 80px; border-radius: var(--radius-md); border: 2px dashed var(--border); overflow: hidden; display: flex; align-items: center; justify-content: center; background: #f8fafc; flex-shrink: 0;">
+                <img id="imagePreview" src="" alt="Preview" style="width: 100%; height: 100%; object-fit: cover; display: none;">
+                <span id="imagePreviewPlaceholder" style="font-size: 1.8rem; color: var(--text-muted);">📷</span>
+              </div>
+              <div style="flex: 1;">
+                <input type="file" id="menuImageFile" class="form-control" accept="image/*" style="width: 100%; font-size: 0.85rem; padding: 0.45rem 0.6rem;">
+                <div style="display: flex; gap: 0.5rem; margin-top: 0.4rem; align-items: center;">
+                  <button type="button" id="btnRemoveImage" class="btn btn-sm btn-secondary" style="font-size: 0.78rem; padding: 0.2rem 0.6rem; display: none;">Gỡ ảnh</button>
+                  <small style="color: var(--text-muted); font-size: 0.78rem;">Hỗ trợ JPG, PNG, WEBP</small>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 0.6rem; margin-top: 1rem;">
+            <input type="checkbox" id="menuAvailable" checked style="width: 18px; height: 18px; cursor: pointer;">
+            <label for="menuAvailable" style="font-weight: 600; font-size: 0.9rem; cursor: pointer;">Đang còn phục vụ (Bật nếu còn món)</label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary btn-sm" id="modalCancelBtn">Hủy</button>
+          <button type="submit" id="saveMenuBtn" class="btn btn-primary btn-sm">Lưu Dữ Liệu</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL THÊM / SỬA BÀN ĂN (100% CSP COMPLIANT) -->
+  <div id="tableModal" class="modal-overlay">
+    <div class="modal-content" style="max-width: 440px;">
+      <div class="modal-header">
+        <h3 id="tableModalTitle">Thêm Bàn Ăn Mới</h3>
+        <button type="button" class="modal-close-btn" id="tableModalCloseX">&times;</button>
+      </div>
+      <form id="tableForm">
+        <div class="modal-body">
+          <input type="hidden" id="tableId">
+
+          <div class="form-group" style="margin-bottom: 1.25rem;">
+            <label style="display:block; font-weight:600; font-size:0.85rem; margin-bottom:0.4rem;">Số hiệu bàn (Số bàn) *</label>
+            <input type="number" id="tableNumber" class="form-control" style="width: 100%;" placeholder="Ví dụ: 7" min="1" required>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 1.25rem;">
+            <label style="display:block; font-weight:600; font-size:0.85rem; margin-bottom:0.4rem;">Sức chứa (Số chỗ ngồi) *</label>
+            <input type="number" id="tableCapacity" class="form-control" style="width: 100%;" placeholder="Ví dụ: 4" min="1" max="50" required>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 1.25rem;" id="tableStatusGroup">
+            <label style="display:block; font-weight:600; font-size:0.85rem; margin-bottom:0.4rem;">Trạng thái bàn</label>
+            <select id="tableStatus" class="form-control" style="width: 100%;">
+              <option value="AVAILABLE">AVAILABLE (Bàn trống / Sẵn sàng)</option>
+              <option value="OCCUPIED">OCCUPIED (Đang có khách)</option>
+              <option value="RESERVED">RESERVED (Đã đặt trước)</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary btn-sm" id="tableModalCancelBtn">Hủy</button>
+          <button type="submit" id="saveTableBtn" class="btn btn-primary btn-sm">Lưu Bàn Ăn</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL ĐỔI MẬT KHẨU NHÂN VIÊN (100% CSP COMPLIANT) -->
+  <div id="resetPasswordModal" class="modal-overlay">
+    <div class="modal-content" style="max-width: 440px;">
+      <div class="modal-header">
+        <h3>Cấp Lại Mật Khẩu Nhân Viên</h3>
+        <button type="button" class="modal-close-btn" id="resetPassCloseX">&times;</button>
+      </div>
+      <form id="resetPassForm">
+        <div class="modal-body">
+          <input type="hidden" id="resetUserId">
+          <p style="margin-bottom: 1rem; font-size: 0.9rem; color: var(--text-muted);">
+            Đổi mật khẩu cho tài khoản: <strong id="resetTargetUsername" style="color: var(--primary);"></strong>
+          </p>
+          <div class="form-group" style="margin-bottom: 1.25rem;">
+            <label style="display:block; font-weight:600; font-size:0.85rem; margin-bottom:0.4rem;">Mật khẩu mới * (Tối thiểu 6 ký tự)</label>
+            <input type="password" id="resetNewPassword" class="form-control" style="width: 100%;" placeholder="Nhập mật khẩu mới" minlength="6" required autocomplete="new-password">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary btn-sm" id="resetPassCancelBtn">Hủy</button>
+          <button type="submit" id="btnConfirmResetPass" class="btn btn-primary btn-sm">Xác Nhận Đổi</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL NHẬN ĐẶT BÀN MỚI (100% CSP COMPLIANT) -->
+  <div id="reservationModal" class="modal-overlay">
+    <div class="modal-content" style="max-width: 480px;">
+      <div class="modal-header">
+        <h3 id="reservationModalTitle">Nhận Đặt Bàn Trực Tiếp</h3>
+        <button type="button" class="modal-close-btn" id="resModalCloseX">&times;</button>
+      </div>
+      <form id="reservationForm">
+        <div class="modal-body">
+          <div class="form-group" style="margin-bottom: 1.15rem;">
+            <label style="display:block; font-weight:600; font-size:0.85rem; margin-bottom:0.35rem;">Họ và tên khách hàng *</label>
+            <input type="text" id="resCustomerName" class="form-control" style="width: 100%;" placeholder="Ví dụ: Nguyễn Văn An" required>
+          </div>
+          <div class="form-group" style="margin-bottom: 1.15rem;">
+            <label style="display:block; font-weight:600; font-size:0.85rem; margin-bottom:0.35rem;">Số điện thoại liên hệ *</label>
+            <input type="tel" id="resCustomerPhone" class="form-control" style="width: 100%;" placeholder="Ví dụ: 0912345678" required>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.15rem;">
+            <div>
+              <label style="display:block; font-weight:600; font-size:0.85rem; margin-bottom:0.35rem;">Chọn bàn ăn *</label>
+              <select id="resTableSelect" class="form-control" style="width: 100%;" required>
+                <option value="">-- Chọn bàn trống --</option>
+              </select>
+            </div>
+            <div>
+              <label style="display:block; font-weight:600; font-size:0.85rem; margin-bottom:0.35rem;">Số lượng khách *</label>
+              <input type="number" id="resGuestCount" class="form-control" style="width: 100%;" value="2" min="1" max="50" required>
+            </div>
+          </div>
+          <div class="form-group" style="margin-bottom: 1.15rem;">
+            <label style="display:block; font-weight:600; font-size:0.85rem; margin-bottom:0.35rem;">Thời gian nhận bàn *</label>
+            <input type="datetime-local" id="resBookingTime" class="form-control" style="width: 100%;" required>
+          </div>
+          <div class="form-group" style="margin-bottom: 0.5rem;">
+            <label style="display:block; font-weight:600; font-size:0.85rem; margin-bottom:0.35rem;">Yêu cầu đặc biệt (Ghi chú)</label>
+            <textarea id="resSpecialRequest" class="form-control" style="width: 100%; height: 75px; resize: vertical;" placeholder="Ví dụ: Trang trí sinh nhật, bàn gần cửa sổ..."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary btn-sm" id="resModalCancelBtn">Hủy</button>
+          <button type="submit" id="saveReservationBtn" class="btn btn-primary btn-sm">Xác Nhận Giữ Chỗ</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="/auth-guard.js"></script>
+  <script src="/admin.js"></script>
+</body>
+</html>
